@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="pl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Magazynier</title>
+    <link rel="icon" type="image/svg+xml" href="/static/favicon.svg" />
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <div class="bg-glow bg-glow-1"></div>
+    <div class="bg-glow bg-glow-2"></div>
+
+    <header class="topbar">
+      <a class="brand" href="/">
+        <img src="/static/favicon.svg" alt="Magazynier" class="brand-logo" />
+        <span>MAGAZYNIER</span>
+      </a>
+    </header>
+
+    <main class="container">{% block content %}{% endblock %}</main>
+  </body>
+  </html>
+

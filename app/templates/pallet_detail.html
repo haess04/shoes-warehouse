@@ -1,0 +1,173 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="hero card">
+  <h1>{{ pallet.code }}</h1>
+  <p class="hero-subtitle">
+    Dostawa: {{ pallet.delivery_date }} · Koszt zakupu: {{ "%.2f"|format(pallet.purchase_gross) }} zł
+  </p>
+  <form method="post" action="/pallets/{{ pallet.id }}/price" class="inline-form" style="margin: 10px 0 16px 0; gap: 8px;">
+    <input
+      type="number"
+      step="0.01"
+      min="0"
+      name="purchase_gross"
+      value="{{ '%.2f'|format(pallet.purchase_gross) }}"
+      required
+      style="max-width: 180px;"
+    />
+    <button type="submit" class="btn-primary btn-small">Zapisz nową cenę palety</button>
+  </form>
+  <div class="stats-grid">
+    <article class="stat-tile">
+      <span class="stat-label">Liczba butów</span>
+      <strong class="stat-value">{{ total_shoes_count }}</strong>
+    </article>
+    <article class="stat-tile">
+      <span class="stat-label">Sprzedane buty</span>
+      <strong class="stat-value">{{ sold_shoes_count }}</strong>
+    </article>
+    <article class="stat-tile">
+      <span class="stat-label">Wartość sprzedanych butów</span>
+      <strong class="stat-value">{{ sold_value_label }}</strong>
+    </article>
+  </div>
+</section>
+
+<section class="card">
+  <h2>Dodaj buta</h2>
+  <form method="post" action="/pallets/{{ pallet.id }}/shoes" class="form-grid">
+    <label>
+      Numer identyfikacyjny
+      <input
+        type="text"
+        name="internal_id"
+        value="{{ default_internal_id }}"
+        placeholder="np. SHOE-0001"
+        required
+      />
+    </label>
+    <label>
+      Nazwa
+      <input type="text" name="name" placeholder="np. Nike Air Max" required />
+    </label>
+    <label class="full">
+      Opis (uszkodzenia / uwagi)
+      <textarea name="description" rows="3" placeholder="opcjonalnie"></textarea>
+    </label>
+    <button type="submit" class="btn-primary">Dodaj buta</button>
+  </form>
+</section>
+
+<section class="card">
+  <h2>Buty w palecie</h2>
+  <form method="post" action="/pallets/{{ pallet.id }}/photos/sync-all" class="inline-form" style="margin-bottom: 12px;">
+    <button type="submit" class="btn-primary">Synchronizuj zdjęcia wszystkich butów</button>
+  </form>
+  <form method="get" action="/pallets/{{ pallet.id }}" class="search-row">
+    <input type="text" name="q" value="{{ q }}" placeholder="Szukaj po ID lub nazwie" />
+    <select name="status">
+      <option value="all" {% if status_filter == 'all' %}selected{% endif %}>Wszystkie</option>
+      <option value="available" {% if status_filter == 'available' %}selected{% endif %}>Dostępne</option>
+      <option value="sold" {% if status_filter == 'sold' %}selected{% endif %}>Sprzedane</option>
+    </select>
+    <button type="submit" class="btn-primary">Szukaj</button>
+    <a class="link-muted" href="/pallets/{{ pallet.id }}">Wyczyść</a>
+  </form>
+
+  {% if shoes %}
+  <div class="table-wrap shoes-table-wrap">
+  <table class="shoes-table">
+    <thead>
+      <tr>
+        <th>ID rekordu</th>
+        <th>ID buta</th>
+        <th>Nazwa</th>
+        <th>Zdjęcie</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for s in shoes %}
+      <tr class="clickable-row" data-href="/shoes/{{ s.id }}" role="link" tabindex="0">
+        <td data-label="ID rekordu"><a href="/shoes/{{ s.id }}">{{ s.id }}</a></td>
+        <td data-label="ID buta"><a href="/shoes/{{ s.id }}">{{ s.internal_id }}</a></td>
+        <td data-label="Nazwa">
+          {% set words = s.name.split() %}
+          {% set short_name = words[:10] | join(' ') %}
+          <a href="/shoes/{{ s.id }}" class="shoe-name-truncate" title="{{ s.name }}">
+            {{ short_name }}{% if words|length > 10 %}...{% endif %}
+          </a>
+        </td>
+        <td data-label="Zdjęcie">
+          {% if first_photo_by_shoe.get(s.id) %}
+            <img
+              src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw=="
+              data-src="/media/{{ first_photo_by_shoe[s.id].file_path }}"
+              alt="miniatura {{ s.internal_id }}"
+              class="thumb js-lazy-thumb"
+              loading="lazy"
+              decoding="async"
+            />
+          {% else %}
+            <span class="muted">Brak</span>
+          {% endif %}
+        </td>
+        <td data-label="Status">
+          {% if s.status == "sold" %}
+          <span class="badge sold">sprzedane</span>
+          {% else %}
+          <span class="badge available">dostępne</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}
+  <p class="muted">Brak butów dla tej palety.</p>
+  {% endif %}
+</section>
+
+<script>
+  document.querySelectorAll('.clickable-row').forEach((row) => {
+    const href = row.dataset.href;
+    row.addEventListener('click', (event) => {
+      if (event.target.closest('a, button, form, input, textarea')) return;
+      window.location.href = href;
+    });
+    row.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        window.location.href = href;
+      }
+    });
+  });
+
+  const lazyThumbs = document.querySelectorAll('.js-lazy-thumb');
+  if ('IntersectionObserver' in window) {
+    const observer = new IntersectionObserver((entries, obs) => {
+      entries.forEach((entry) => {
+        if (!entry.isIntersecting) return;
+        const img = entry.target;
+        const src = img.getAttribute('data-src');
+        if (src) {
+          img.src = src;
+          img.removeAttribute('data-src');
+        }
+        obs.unobserve(img);
+      });
+    }, { rootMargin: '200px 0px' });
+
+    lazyThumbs.forEach((img) => observer.observe(img));
+  } else {
+    lazyThumbs.forEach((img) => {
+      const src = img.getAttribute('data-src');
+      if (src) img.src = src;
+      img.removeAttribute('data-src');
+    });
+  }
+</script>
+{% endblock %}
+

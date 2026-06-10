@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="hero card">
+  <h1>Inspektor bazy danych</h1>
+  <p class="hero-subtitle">Podgląd zapisanych rekordów i szybka weryfikacja spójności danych.</p>
+  <div class="stats-grid">
+    <article class="stat-tile">
+      <span class="stat-label">Palety</span>
+      <strong class="stat-value">{{ stats.pallets_count }}</strong>
+    </article>
+    <article class="stat-tile">
+      <span class="stat-label">Buty</span>
+      <strong class="stat-value">{{ stats.shoes_count }}</strong>
+    </article>
+    <article class="stat-tile">
+      <span class="stat-label">Zdjęcia</span>
+      <strong class="stat-value">{{ stats.photos_count }}</strong>
+    </article>
+  </div>
+</section>
+
+<section class="card">
+  <h2>Palety</h2>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>ID</th><th>Kod</th><th>Dostawa</th><th>Koszt brutto</th></tr>
+      </thead>
+      <tbody>
+      {% for p in pallets %}
+        <tr>
+          <td>{{ p.id }}</td>
+          <td>{{ p.code }}</td>
+          <td>{{ p.delivery_date }}</td>
+          <td>{{ "%.2f"|format(p.purchase_gross) }} zł</td>
+        </tr>
+      {% else %}
+        <tr><td colspan="4" class="muted">Brak danych</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="card">
+  <h2>Buty</h2>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>ID</th><th>Paleta ID</th><th>ID buta</th><th>Nazwa</th><th>Status</th><th>Cena sprzedaży</th><th>Data sprzedaży</th></tr>
+      </thead>
+      <tbody>
+      {% for s in shoes %}
+        <tr>
+          <td>{{ s.id }}</td>
+          <td>{{ s.pallet_id }}</td>
+          <td>{{ s.internal_id }}</td>
+          <td>{{ s.name }}</td>
+          <td>{{ s.status }}</td>
+          <td>{% if s.sale_price is not none %}{{ "%.2f"|format(s.sale_price) }} zł{% else %}-{% endif %}</td>
+          <td>{% if s.sale_date %}{{ s.sale_date }}{% else %}-{% endif %}</td>
+        </tr>
+      {% else %}
+        <tr><td colspan="7" class="muted">Brak danych</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="card">
+  <h2>Zdjęcia</h2>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>ID</th><th>Shoe ID</th><th>Ścieżka</th><th>Kolejność</th></tr>
+      </thead>
+      <tbody>
+      {% for ph in photos %}
+        <tr>
+          <td>{{ ph.id }}</td>
+          <td>{{ ph.shoe_id }}</td>
+          <td class="photo-path">{{ ph.file_path }}</td>
+          <td>{{ ph.sort_order }}</td>
+        </tr>
+      {% else %}
+        <tr><td colspan="4" class="muted">Brak danych</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}
+

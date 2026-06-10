@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="hero card">
+  <h1>Magazynier — Palety</h1>
+  <p>Nowoczesny panel do zarządzania dostawami butów, stanem i sprzedażą.</p>
+  <div class="inline-form-wrap" style="margin-top: 10px; gap: 10px; align-items: center; flex-wrap: wrap;">
+    <a class="btn-primary btn-small" href="/db-inspector">Otwórz inspektor bazy</a>
+    <form method="get" action="/reports/sold-shoes.xlsx" class="inline-form" style="gap: 10px; align-items: end; flex-wrap: wrap;">
+      <label>
+        Data od
+        <input type="date" name="report_start" value="{{ report_start }}" required />
+      </label>
+      <label>
+        Data do
+        <input type="date" name="report_end" value="{{ report_end }}" required />
+      </label>
+      <label>
+        Stawka ryczałtu (%)
+        <input type="number" name="tax_rate" step="0.01" min="0" value="{{ '%.2f'|format(tax_rate) }}" required />
+      </label>
+      <button type="submit" class="btn-primary btn-small">Pobierz raport Excel (sprzedane buty)</button>
+    </form>
+  </div>
+</section>
+
+<section class="card">
+  <h2>Dodaj paletę</h2>
+  <form method="post" action="/pallets" class="form-grid">
+    <label>
+      Kod palety
+      <input type="text" name="code" placeholder="np. PALETA_A" required />
+    </label>
+    <label>
+      Data dostawy
+      <input type="date" name="delivery_date" required />
+    </label>
+    <label>
+      Cena brutto (PLN)
+      <input type="number" step="0.01" min="0" name="purchase_gross" required />
+    </label>
+    <label class="full">
+      Notatki
+      <textarea name="notes" rows="3" placeholder="opcjonalnie"></textarea>
+    </label>
+    <button type="submit" class="btn-primary">Zapisz paletę</button>
+  </form>
+</section>
+
+<section class="card">
+  <h2>Lista palet</h2>
+  {% if pallets %}
+  <div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Kod</th>
+        <th>Data dostawy</th>
+        <th>Koszt brutto</th>
+        <th>Akcja</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for p in pallets %}
+      <tr class="clickable-row" data-href="/pallets/{{ p.id }}" role="link" tabindex="0">
+        <td><a href="/pallets/{{ p.id }}">{{ p.id }}</a></td>
+        <td><a href="/pallets/{{ p.id }}">{{ p.code }}</a></td>
+        <td><a href="/pallets/{{ p.id }}">{{ p.delivery_date }}</a></td>
+        <td><a href="/pallets/{{ p.id }}">{{ "%.2f"|format(p.purchase_gross) }} zł</a></td>
+        <td>
+          <form
+            method="post"
+            action="/pallets/{{ p.id }}/delete"
+            class="inline-form"
+            onsubmit="return confirm('Usunąć paletę {{ p.code }}? Operacja usunie też wszystkie buty i zdjęcia z bazy.')"
+          >
+            <button type="submit" class="btn-danger btn-small">Usuń paletę</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}
+  <p class="muted">Brak palet w bazie.</p>
+  {% endif %}
+</section>
+
+<script>
+  document.querySelectorAll('.clickable-row').forEach((row) => {
+    const href = row.dataset.href;
+    row.addEventListener('click', (event) => {
+      if (event.target.closest('a, button, form, input, textarea')) return;
+      window.location.href = href;
+    });
+    row.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        window.location.href = href;
+      }
+    });
+  });
+</script>
+{% endblock %}
+

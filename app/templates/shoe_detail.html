@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="top-back-link">
+  <a class="btn-primary btn-small" href="/pallets/{{ pallet.id }}">← Powrót do palety</a>
+</div>
+
+<section class="hero card">
+  <h1>But: {{ shoe.internal_id }} — {{ shoe.name }}</h1>
+  <p>Paleta: <a href="/pallets/{{ pallet.id }}">{{ pallet.code }}</a></p>
+  <p>
+    Status:
+    {% if shoe.status == "sold" %}
+      <span class="badge sold">sprzedane</span>
+    {% else %}
+      <span class="badge available">dostępne</span>
+    {% endif %}
+  </p>
+  <p>
+    Cena sprzedaży:
+    {% if shoe.sale_price is not none %}
+      <strong>{{ "%.2f"|format(shoe.sale_price) }} zł</strong>
+    {% else %}
+      <span class="muted">brak</span>
+    {% endif %}
+  </p>
+  <p>
+    Data sprzedaży:
+    {% if shoe.sale_date %}
+      <strong>{{ shoe.sale_date }}</strong>
+    {% else %}
+      <span class="muted">brak</span>
+    {% endif %}
+  </p>
+  <div class="inline-form-wrap" style="margin-top: 8px;">
+    <form method="post" action="/shoes/{{ shoe.id }}/toggle-status" class="inline-form">
+      {% if shoe.status != "sold" %}
+        <input type="number" step="0.01" min="0" name="sale_price" placeholder="Cena sprzedaży (zł)" required />
+        <input type="date" name="sale_date" required />
+      {% endif %}
+      <button type="submit" class="btn-primary">
+        {% if shoe.status == "sold" %}Oznacz jako dostępne{% else %}Oznacz jako sprzedane{% endif %}
+      </button>
+    </form>
+    <form
+      method="post"
+      action="/shoes/{{ shoe.id }}/delete"
+      class="inline-form"
+      onsubmit="return confirm('Usunąć but {{ shoe.internal_id }} ({{ shoe.name }})? Tej operacji nie da się cofnąć.')"
+    >
+      <button type="submit" class="btn-danger">Usuń buta</button>
+    </form>
+  </div>
+
+  {% if shoe.status == "sold" %}
+    <form method="post" action="/shoes/{{ shoe.id }}/sale" class="inline-form-wrap" style="margin-top: 10px; align-items: end;">
+      <label>
+        Cena sprzedaży (edycja)
+        <input
+          type="number"
+          step="0.01"
+          min="0"
+          name="sale_price"
+          value="{{ '%.2f'|format(shoe.sale_price or 0) }}"
+          required
+        />
+      </label>
+      <label>
+        Data sprzedaży (edycja)
+        <input type="date" name="sale_date" value="{{ shoe.sale_date }}" required />
+      </label>
+      <button type="submit" class="btn-primary btn-small">Zapisz dane sprzedaży</button>
+    </form>
+  {% endif %}
+</section>
+
+<section class="card">
+  <h2>Opis</h2>
+  <p class="description-text">{{ shoe.description or "Brak opisu" }}</p>
+</section>
+
+<section class="card">
+  <h2>Zdjęcia</h2>
+  <p class="muted">Folder docelowy: {{ expected_dir }}</p>
+
+  <div class="inline-form-wrap">
+    <form method="post" action="/shoes/{{ shoe.id }}/photos/sync" class="inline-form">
+      <button type="submit" class="btn-primary">Synchronizuj zdjęcia</button>
+    </form>
+    <form method="post" action="/shoes/{{ shoe.id }}/photos" class="inline-form">
+      <input type="text" name="file_path" placeholder="np. PALETY/PALETA_A/A001/1.jpg" />
+      <button type="submit" class="btn-primary">Dodaj ścieżkę</button>
+    </form>
+  </div>
+
+  {% if photos %}
+    <div class="gallery-grid">
+      {% for p in photos %}
+      <article class="photo-card">
+        <img src="/media/{{ p.file_path }}" alt="{{ shoe.internal_id }}" class="gallery-image" />
+        <div class="photo-meta">
+          <span class="photo-path">{{ p.file_path }}</span>
+        </div>
+      </article>
+      {% endfor %}
+    </div>
+  {% else %}
+    <p class="muted">Brak zdjęć dla tego buta.</p>
+  {% endif %}
+</section>
+
+<p><a class="link-muted" href="/pallets/{{ pallet.id }}">← Powrót do listy butów</a></p>
+{% endblock %}
+
