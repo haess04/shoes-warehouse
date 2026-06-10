@@ -36,7 +36,7 @@
     <form method="post" action="/shoes/{{ shoe.id }}/toggle-status" class="inline-form">
       {% if shoe.status != "sold" %}
         <input type="number" step="0.01" min="0" name="sale_price" placeholder="Cena sprzedaży (zł)" required />
-        <input type="date" name="sale_date" required />
+        <input type="date" name="sale_date" value="{{ default_sale_date }}" required />
       {% endif %}
       <button type="submit" class="btn-primary">
         {% if shoe.status == "sold" %}Oznacz jako dostępne{% else %}Oznacz jako sprzedane{% endif %}

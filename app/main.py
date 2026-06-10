@@ -111,6 +111,10 @@ def month_date_range(today: date | None = None) -> tuple[date, date]:
     return start, end
 
 
+def local_today() -> date:
+    return datetime.now().astimezone().date()
+
+
 def parse_percent_rate(raw_value: str, default: float = 3.0) -> float:
     if not raw_value:
         return default
@@ -425,6 +429,7 @@ def shoe_detail(shoe_id: int):
         pallet=pallet,
         photos=photos,
         expected_dir=expected_dir,
+        default_sale_date=local_today().isoformat(),
     )
 
 
