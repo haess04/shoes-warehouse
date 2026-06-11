@@ -1,6 +1,8 @@
 # Magazynier
 
 Lokalna aplikacja webowa do zarządzania magazynem butów przechowywanych w paletach lub boxach. Projekt pozwala ewidencjonować palety, dodawać buty, oznaczać sprzedaż, synchronizować zdjęcia z katalogów na dysku oraz eksportować raport sprzedanych butów do pliku Excel.
+<img width="1107" height="815" alt="image" src="https://github.com/user-attachments/assets/51007f2b-141d-446b-8218-1a213f3734f7" />
+<img width="1112" height="448" alt="image" src="https://github.com/user-attachments/assets/34d0f825-ffb5-4ea8-8d51-6795bef804fd" />
 
 ## Funkcje
 
@@ -13,6 +15,11 @@ Lokalna aplikacja webowa do zarządzania magazynem butów przechowywanych w pale
 - podgląd zdjęć produktu,
 - eksport raportu sprzedanych butów do pliku `.xlsx`,
 - prosty inspektor bazy danych.
+
+<img width="991" height="841" alt="image" src="https://github.com/user-attachments/assets/7c786341-a9c5-4afe-8c4d-639ee8064130" />
+<img width="973" height="782" alt="image" src="https://github.com/user-attachments/assets/7e9aba34-b906-43c7-8ad0-6454f09cd6f7" />
+<img width="843" height="845" alt="image" src="https://github.com/user-attachments/assets/2a475baf-a3ec-400d-b281-a9871641a44f" />
+
 
 ## Technologie
 
