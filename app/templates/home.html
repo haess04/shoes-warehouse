@@ -25,6 +25,64 @@
 </section>
 
 <section class="card">
+  <h2>Szukaj butów we wszystkich paletach i boxach</h2>
+  <form method="get" action="/" class="search-row">
+    <input type="text" name="shoe_q" value="{{ shoe_q }}" placeholder="Szukaj po ID buta, nazwie albo kodzie palety/boxa" />
+    <button type="submit" class="btn-primary">Szukaj</button>
+    <a class="link-muted" href="/">Wyczyść</a>
+  </form>
+
+  {% if shoe_q %}
+    {% if global_shoes %}
+    <div class="table-wrap shoes-table-wrap">
+      <table class="shoes-table">
+        <thead>
+          <tr>
+            <th>ID buta</th>
+            <th>Nazwa</th>
+            <th>Paleta/box</th>
+            <th>Zdjęcie</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for s in global_shoes %}
+          <tr class="clickable-row" data-href="/shoes/{{ s.id }}" role="link" tabindex="0">
+            <td data-label="ID buta"><a href="/shoes/{{ s.id }}">{{ s.internal_id }}</a></td>
+            <td data-label="Nazwa"><a href="/shoes/{{ s.id }}">{{ s.name }}</a></td>
+            <td data-label="Paleta/box"><a href="/pallets/{{ s.pallet.id }}">{{ s.pallet.code }}</a></td>
+            <td data-label="Zdjęcie">
+              {% if first_photo_by_shoe.get(s.id) %}
+                <img
+                  src="/media/{{ first_photo_by_shoe[s.id].file_path }}"
+                  alt="miniatura {{ s.internal_id }}"
+                  class="thumb"
+                  loading="lazy"
+                  decoding="async"
+                />
+              {% else %}
+                <span class="muted">Brak</span>
+              {% endif %}
+            </td>
+            <td data-label="Status">
+              {% if s.status == "sold" %}
+              <span class="badge sold">sprzedane</span>
+              {% else %}
+              <span class="badge available">dostępne</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+      <p class="muted">Brak butów pasujących do wyszukiwania.</p>
+    {% endif %}
+  {% endif %}
+</section>
+
+<section class="card">
   <h2>Dodaj paletę</h2>
   <form method="post" action="/pallets" class="form-grid">
     <label>

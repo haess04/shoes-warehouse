@@ -17,6 +17,15 @@
     {% endif %}
   </p>
   <p>
+    Konto Vinted:
+    {% if shoe.vinted_account %}
+      <strong>{{ shoe.vinted_account.name }}</strong>
+      {% if shoe.vinted_account.is_banned %}<span class="badge sold">zbanowane</span>{% endif %}
+    {% else %}
+      <span class="muted">brak</span>
+    {% endif %}
+  </p>
+  <p>
     Cena sprzedaży:
     {% if shoe.sale_price is not none %}
       <strong>{{ "%.2f"|format(shoe.sale_price) }} zł</strong>
@@ -75,7 +84,35 @@
 </section>
 
 <section class="card">
-  <h2>Opis</h2>
+  <h2>Dane buta</h2>
+  <form method="post" action="/shoes/{{ shoe.id }}/details" class="form-grid">
+    <label>
+      ID buta
+      <input type="text" name="internal_id" value="{{ shoe.internal_id }}" required />
+    </label>
+    <label>
+      Tytuł / nazwa
+      <input type="text" name="name" value="{{ shoe.name }}" required />
+    </label>
+    <label>
+      Konto Vinted
+      <select name="vinted_account_id">
+        <option value="">Brak przypisanego konta</option>
+        {% for account in vinted_accounts %}
+          <option value="{{ account.id }}" {% if shoe.vinted_account_id == account.id %}selected{% endif %}>
+            {{ account.name }}{% if account.is_banned %} (zbanowane){% endif %}
+          </option>
+        {% endfor %}
+      </select>
+    </label>
+    <label class="full">
+      Opis
+      <textarea name="description" rows="5" placeholder="opcjonalnie">{{ shoe.description or "" }}</textarea>
+    </label>
+    <button type="submit" class="btn-primary">Zapisz dane buta</button>
+  </form>
+
+  <h2 style="margin-top: 18px;">Opis</h2>
   <p class="description-text">{{ shoe.description or "Brak opisu" }}</p>
 </section>
 

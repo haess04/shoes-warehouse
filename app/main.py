@@ -12,11 +12,12 @@ if __package__ is None or __package__ == "":
 
 from flask import Flask, abort, redirect, render_template, request, send_file, url_for
 from sqlalchemy import or_
+from sqlalchemy.orm import joinedload
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font, PatternFill
 
 from app.database import Base, engine, get_session
-from app.models import Pallet, Shoe, ShoePhoto
+from app.models import Pallet, Shoe, ShoePhoto, VintedAccount
 
 
 app = Flask(__name__, static_folder="static", template_folder="templates")
@@ -31,6 +32,8 @@ def ensure_schema_compatibility() -> None:
             conn.exec_driver_sql("ALTER TABLE shoes ADD COLUMN sale_price FLOAT")
         if "sale_date" not in columns:
             conn.exec_driver_sql("ALTER TABLE shoes ADD COLUMN sale_date DATE")
+        if "vinted_account_id" not in columns:
+            conn.exec_driver_sql("ALTER TABLE shoes ADD COLUMN vinted_account_id INTEGER")
 
 
 ensure_schema_compatibility()
@@ -147,6 +150,7 @@ def home():
     start_raw = request.args.get("report_start", "").strip()
     end_raw = request.args.get("report_end", "").strip()
     rate_raw = request.args.get("tax_rate", "").strip()
+    shoe_q = request.args.get("shoe_q", "").strip()
 
     try:
         report_start = datetime.strptime(start_raw, "%Y-%m-%d").date() if start_raw else month_start
@@ -165,6 +169,43 @@ def home():
 
     with get_session() as session:
         pallets = session.query(Pallet).order_by(Pallet.id.desc()).all()
+
+        global_shoes = []
+        first_photo_by_shoe = {}
+        if shoe_q:
+            global_shoes = (
+                session.query(Shoe)
+                .options(joinedload(Shoe.pallet))
+                .join(Pallet)
+                .filter(
+                    or_(
+                        Shoe.internal_id.ilike(f"%{shoe_q}%"),
+                        Shoe.name.ilike(f"%{shoe_q}%"),
+                        Pallet.code.ilike(f"%{shoe_q}%"),
+                    )
+                )
+                .order_by(Shoe.id.desc())
+                .limit(100)
+                .all()
+            )
+
+            shoe_ids = [s.id for s in global_shoes]
+            photos = (
+                session.query(ShoePhoto)
+                .filter(ShoePhoto.shoe_id.in_(shoe_ids))
+                .order_by(ShoePhoto.sort_order.asc(), ShoePhoto.id.asc())
+                .all()
+                if shoe_ids
+                else []
+            )
+
+            photos_by_shoe = {}
+            for photo in photos:
+                photos_by_shoe.setdefault(photo.shoe_id, []).append(photo)
+
+            first_photo_by_shoe = {
+                shoe_id: shoe_photos[0] for shoe_id, shoe_photos in photos_by_shoe.items() if shoe_photos
+            }
 
         sold_in_range = (
             session.query(Shoe)
@@ -186,6 +227,9 @@ def home():
         report_end=report_end.isoformat(),
         tax_rate=tax_rate,
         report_total_sales=report_total_sales,
+        shoe_q=shoe_q,
+        global_shoes=global_shoes,
+        first_photo_by_shoe=first_photo_by_shoe,
     )
 
 
@@ -316,13 +360,15 @@ def export_sold_shoes_report():
 def db_inspector():
     with get_session() as session:
         pallets = session.query(Pallet).order_by(Pallet.id.asc()).all()
-        shoes = session.query(Shoe).order_by(Shoe.id.asc()).all()
+        shoes = session.query(Shoe).options(joinedload(Shoe.vinted_account)).order_by(Shoe.id.asc()).all()
         photos = session.query(ShoePhoto).order_by(ShoePhoto.id.asc()).all()
+        vinted_accounts = session.query(VintedAccount).order_by(VintedAccount.id.asc()).all()
 
         stats = {
             "pallets_count": len(pallets),
             "shoes_count": len(shoes),
             "photos_count": len(photos),
+            "vinted_accounts_count": len(vinted_accounts),
             "sold_shoes_count": sum(1 for s in shoes if s.status == "sold"),
             "sold_total": sum((s.sale_price or 0.0) for s in shoes if s.status == "sold"),
         }
@@ -332,8 +378,62 @@ def db_inspector():
         pallets=pallets,
         shoes=shoes,
         photos=photos,
+        vinted_accounts=vinted_accounts,
         stats=stats,
     )
+
+
+@app.get("/vinted-accounts")
+def vinted_accounts():
+    with get_session() as session:
+        accounts = session.query(VintedAccount).order_by(VintedAccount.name.asc()).all()
+
+    return render_template("vinted_accounts.html", accounts=accounts)
+
+
+@app.post("/vinted-accounts")
+def create_vinted_account():
+    name = request.form.get("name", "").strip()
+    is_banned = request.form.get("is_banned") == "on"
+
+    if not name:
+        return redirect(url_for("vinted_accounts"))
+
+    with get_session() as session:
+        exists = session.query(VintedAccount).filter(VintedAccount.name == name).first()
+        if not exists:
+            session.add(VintedAccount(name=name, is_banned=is_banned))
+            session.commit()
+
+    return redirect(url_for("vinted_accounts"))
+
+
+@app.post("/vinted-accounts/<int:account_id>")
+def update_vinted_account(account_id: int):
+    name = request.form.get("name", "").strip()
+    is_banned = request.form.get("is_banned") == "on"
+
+    if not name:
+        return redirect(url_for("vinted_accounts"))
+
+    with get_session() as session:
+        account = session.query(VintedAccount).filter(VintedAccount.id == account_id).first()
+        if not account:
+            return redirect(url_for("vinted_accounts"))
+
+        duplicate = (
+            session.query(VintedAccount)
+            .filter(VintedAccount.name == name, VintedAccount.id != account_id)
+            .first()
+        )
+        if duplicate:
+            return redirect(url_for("vinted_accounts"))
+
+        account.name = name
+        account.is_banned = is_banned
+        session.commit()
+
+    return redirect(url_for("vinted_accounts"))
 
 
 @app.get("/pallets/<int:pallet_id>")
@@ -346,7 +446,9 @@ def pallet_detail(pallet_id: int):
         if not pallet:
             return redirect(url_for("home"))
 
-        shoes_query = session.query(Shoe).filter(Shoe.pallet_id == pallet_id)
+        vinted_accounts = session.query(VintedAccount).order_by(VintedAccount.is_banned.asc(), VintedAccount.name.asc()).all()
+
+        shoes_query = session.query(Shoe).options(joinedload(Shoe.vinted_account)).filter(Shoe.pallet_id == pallet_id)
         if status_filter in {"available", "sold"}:
             shoes_query = shoes_query.filter(Shoe.status == status_filter)
         if query_text:
@@ -400,13 +502,14 @@ def pallet_detail(pallet_id: int):
         total_shoes_count=total_shoes_count,
         sold_shoes_count=sold_shoes_count,
         sold_value_label=sold_value_label,
+        vinted_accounts=vinted_accounts,
     )
 
 
 @app.get("/shoes/<int:shoe_id>")
 def shoe_detail(shoe_id: int):
     with get_session() as session:
-        shoe = session.query(Shoe).filter(Shoe.id == shoe_id).first()
+        shoe = session.query(Shoe).options(joinedload(Shoe.vinted_account)).filter(Shoe.id == shoe_id).first()
         if not shoe:
             return redirect(url_for("home"))
 
@@ -422,6 +525,7 @@ def shoe_detail(shoe_id: int):
         )
 
         expected_dir = str(expected_shoe_dir(pallet.code, shoe.internal_id))
+        vinted_accounts = session.query(VintedAccount).order_by(VintedAccount.is_banned.asc(), VintedAccount.name.asc()).all()
 
     return render_template(
         "shoe_detail.html",
@@ -430,6 +534,7 @@ def shoe_detail(shoe_id: int):
         photos=photos,
         expected_dir=expected_dir,
         default_sale_date=local_today().isoformat(),
+        vinted_accounts=vinted_accounts,
     )
 
 
@@ -490,11 +595,28 @@ def update_pallet_price(pallet_id: int):
     return redirect(url_for("pallet_detail", pallet_id=pallet_id))
 
 
+@app.post("/pallets/<int:pallet_id>/notes")
+def update_pallet_notes(pallet_id: int):
+    notes = request.form.get("notes", "").strip() or None
+
+    with get_session() as session:
+        pallet = session.query(Pallet).filter(Pallet.id == pallet_id).first()
+        if not pallet:
+            return redirect(url_for("home"))
+
+        pallet.notes = notes
+        session.commit()
+
+    return redirect(url_for("pallet_detail", pallet_id=pallet_id))
+
+
 @app.post("/pallets/<int:pallet_id>/shoes")
 def create_shoe(pallet_id: int):
     internal_id = request.form["internal_id"].strip()
     name = request.form["name"].strip()
     description = request.form.get("description", "").strip() or None
+    vinted_account_raw = request.form.get("vinted_account_id", "").strip()
+    vinted_account_id = int(vinted_account_raw) if vinted_account_raw.isdigit() else None
 
     if not internal_id or not name:
         return redirect(url_for("pallet_detail", pallet_id=pallet_id))
@@ -504,17 +626,57 @@ def create_shoe(pallet_id: int):
         if exists:
             return redirect(url_for("pallet_detail", pallet_id=pallet_id, q=internal_id))
 
+        if vinted_account_id is not None:
+            account = session.query(VintedAccount).filter(VintedAccount.id == vinted_account_id).first()
+            if not account:
+                vinted_account_id = None
+
         shoe = Shoe(
             pallet_id=pallet_id,
             internal_id=internal_id,
             name=name,
             description=description,
+            vinted_account_id=vinted_account_id,
             status="available",
         )
         session.add(shoe)
         session.commit()
 
     return redirect(url_for("pallet_detail", pallet_id=pallet_id))
+
+
+@app.post("/shoes/<int:shoe_id>/details")
+def update_shoe_details(shoe_id: int):
+    internal_id = request.form.get("internal_id", "").strip()
+    name = request.form.get("name", "").strip()
+    description = request.form.get("description", "").strip() or None
+    vinted_account_raw = request.form.get("vinted_account_id", "").strip()
+    vinted_account_id = int(vinted_account_raw) if vinted_account_raw.isdigit() else None
+
+    if not internal_id or not name:
+        return redirect(url_for("shoe_detail", shoe_id=shoe_id))
+
+    with get_session() as session:
+        shoe = session.query(Shoe).filter(Shoe.id == shoe_id).first()
+        if not shoe:
+            return redirect(url_for("home"))
+
+        duplicate = session.query(Shoe).filter(Shoe.internal_id == internal_id, Shoe.id != shoe_id).first()
+        if duplicate:
+            return redirect(url_for("shoe_detail", shoe_id=shoe_id))
+
+        if vinted_account_id is not None:
+            account = session.query(VintedAccount).filter(VintedAccount.id == vinted_account_id).first()
+            if not account:
+                vinted_account_id = None
+
+        shoe.internal_id = internal_id
+        shoe.name = name
+        shoe.description = description
+        shoe.vinted_account_id = vinted_account_id
+        session.commit()
+
+    return redirect(url_for("shoe_detail", shoe_id=shoe_id))
 
 
 @app.post("/pallets/<int:pallet_id>/photos/sync-all")

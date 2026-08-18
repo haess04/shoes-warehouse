@@ -17,6 +17,32 @@
       <span class="stat-label">Zdjęcia</span>
       <strong class="stat-value">{{ stats.photos_count }}</strong>
     </article>
+    <article class="stat-tile">
+      <span class="stat-label">Konta Vinted</span>
+      <strong class="stat-value">{{ stats.vinted_accounts_count }}</strong>
+    </article>
+  </div>
+</section>
+
+<section class="card">
+  <h2>Konta Vinted</h2>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>ID</th><th>Nazwa</th><th>Status</th></tr>
+      </thead>
+      <tbody>
+      {% for account in vinted_accounts %}
+        <tr>
+          <td>{{ account.id }}</td>
+          <td>{{ account.name }}</td>
+          <td>{% if account.is_banned %}zbanowane{% else %}aktywne{% endif %}</td>
+        </tr>
+      {% else %}
+        <tr><td colspan="3" class="muted">Brak danych</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
   </div>
 </section>
 
@@ -48,7 +74,7 @@
   <div class="table-wrap">
     <table>
       <thead>
-        <tr><th>ID</th><th>Paleta ID</th><th>ID buta</th><th>Nazwa</th><th>Status</th><th>Cena sprzedaży</th><th>Data sprzedaży</th></tr>
+        <tr><th>ID</th><th>Paleta ID</th><th>ID buta</th><th>Nazwa</th><th>Konto Vinted</th><th>Status</th><th>Cena sprzedaży</th><th>Data sprzedaży</th></tr>
       </thead>
       <tbody>
       {% for s in shoes %}
@@ -57,12 +83,13 @@
           <td>{{ s.pallet_id }}</td>
           <td>{{ s.internal_id }}</td>
           <td>{{ s.name }}</td>
+          <td>{% if s.vinted_account %}{{ s.vinted_account.name }}{% else %}-{% endif %}</td>
           <td>{{ s.status }}</td>
           <td>{% if s.sale_price is not none %}{{ "%.2f"|format(s.sale_price) }} zł{% else %}-{% endif %}</td>
           <td>{% if s.sale_date %}{{ s.sale_date }}{% else %}-{% endif %}</td>
         </tr>
       {% else %}
-        <tr><td colspan="7" class="muted">Brak danych</td></tr>
+        <tr><td colspan="8" class="muted">Brak danych</td></tr>
       {% endfor %}
       </tbody>
     </table>

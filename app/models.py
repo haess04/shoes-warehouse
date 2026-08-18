@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Date, DateTime, Float, ForeignKey, Integer, String, Text, func
+from sqlalchemy import Boolean, Column, Date, DateTime, Float, ForeignKey, Integer, String, Text, func
 from sqlalchemy.orm import relationship
 
 from app.database import Base
@@ -26,12 +26,25 @@ class Shoe(Base):
     name = Column(String(255), nullable=False, index=True)
     description = Column(Text, nullable=True)
     status = Column(String(20), nullable=False, default="available", index=True)
+    vinted_account_id = Column(Integer, ForeignKey("vinted_accounts.id", ondelete="SET NULL"), nullable=True)
     sale_price = Column(Float, nullable=True)
     sale_date = Column(Date, nullable=True)
     created_at = Column(DateTime, nullable=False, server_default=func.now())
 
     pallet = relationship("Pallet", back_populates="shoes")
+    vinted_account = relationship("VintedAccount", back_populates="shoes")
     photos = relationship("ShoePhoto", back_populates="shoe", cascade="all, delete-orphan")
+
+
+class VintedAccount(Base):
+    __tablename__ = "vinted_accounts"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(255), unique=True, nullable=False, index=True)
+    is_banned = Column(Boolean, nullable=False, default=False, index=True)
+    created_at = Column(DateTime, nullable=False, server_default=func.now())
+
+    shoes = relationship("Shoe", back_populates="vinted_account")
 
 
 class ShoePhoto(Base):
