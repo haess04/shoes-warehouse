@@ -2,6 +2,7 @@ from datetime import date, datetime
 from io import BytesIO
 import os
 import re
+from statistics import median
 import sys
 from pathlib import Path
 
@@ -11,7 +12,7 @@ if __package__ is None or __package__ == "":
     sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 from flask import Flask, abort, redirect, render_template, request, send_file, url_for
-from sqlalchemy import or_
+from sqlalchemy import case, func, or_
 from sqlalchemy.orm import joinedload
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font, PatternFill
@@ -118,6 +119,13 @@ def local_today() -> date:
     return datetime.now().astimezone().date()
 
 
+def previous_month_date_range(today: date | None = None) -> tuple[date, date]:
+    current = today or local_today()
+    current_month_start = current.replace(day=1)
+    previous_month_end = current_month_start.fromordinal(current_month_start.toordinal() - 1)
+    return previous_month_end.replace(day=1), previous_month_end
+
+
 def parse_percent_rate(raw_value: str, default: float = 3.0) -> float:
     if not raw_value:
         return default
@@ -169,6 +177,158 @@ def home():
 
     with get_session() as session:
         pallets = session.query(Pallet).order_by(Pallet.id.desc()).all()
+
+        sales_by_pallet = {
+            pallet_id: {
+                "total_count": total_count,
+                "sold_count": sold_count,
+                "sold_value": float(sold_value or 0.0),
+            }
+            for pallet_id, total_count, sold_count, sold_value in (
+                session.query(
+                    Shoe.pallet_id,
+                    func.count(Shoe.id).label("total_count"),
+                    func.sum(case((Shoe.status == "sold", 1), else_=0)).label("sold_count"),
+                    func.sum(case((Shoe.status == "sold", Shoe.sale_price), else_=0.0)).label("sold_value"),
+                )
+                .group_by(Shoe.pallet_id)
+                .all()
+            )
+        }
+
+        pallet_returns = {}
+        for pallet in pallets:
+            sales = sales_by_pallet.get(pallet.id, {"total_count": 0, "sold_count": 0, "sold_value": 0.0})
+            purchase_cost = float(pallet.purchase_gross or 0.0)
+            sold_value = sales["sold_value"]
+            return_percent = (sold_value / purchase_cost * 100.0) if purchase_cost > 0 else 0.0
+            pallet_returns[pallet.id] = {
+                "total_count": sales["total_count"],
+                "sold_count": sales["sold_count"],
+                "sold_value": sold_value,
+                "return_percent": return_percent,
+                "bar_percent": min(return_percent, 100.0),
+            }
+
+        all_shoes = (
+            session.query(Shoe)
+            .options(joinedload(Shoe.pallet), joinedload(Shoe.vinted_account))
+            .order_by(Shoe.id.desc())
+            .all()
+        )
+        sold_shoes = [shoe for shoe in all_shoes if shoe.status == "sold"]
+        available_shoes = [shoe for shoe in all_shoes if shoe.status != "sold"]
+        sold_prices = [float(shoe.sale_price) for shoe in sold_shoes if shoe.sale_price is not None]
+
+        total_purchase_cost = sum(float(pallet.purchase_gross or 0.0) for pallet in pallets)
+        total_sales_value = sum(sold_prices)
+        financial_surplus = total_sales_value - total_purchase_cost
+        global_return_percent = (
+            total_sales_value / total_purchase_cost * 100.0 if total_purchase_cost > 0 else 0.0
+        )
+        sold_share_percent = len(sold_shoes) / len(all_shoes) * 100.0 if all_shoes else 0.0
+
+        inventory_summary = {
+            "total_purchase_cost": total_purchase_cost,
+            "total_sales_value": total_sales_value,
+            "financial_surplus": financial_surplus,
+            "global_return_percent": global_return_percent,
+            "total_shoes": len(all_shoes),
+            "sold_shoes": len(sold_shoes),
+            "available_shoes": len(available_shoes),
+            "sold_share_percent": sold_share_percent,
+        }
+
+        price_statistics = {
+            "average": sum(sold_prices) / len(sold_prices) if sold_prices else 0.0,
+            "median": float(median(sold_prices)) if sold_prices else 0.0,
+            "minimum": min(sold_prices) if sold_prices else 0.0,
+            "maximum": max(sold_prices) if sold_prices else 0.0,
+        }
+
+        top_sold_shoes = sorted(
+            (shoe for shoe in sold_shoes if shoe.sale_price is not None),
+            key=lambda shoe: (float(shoe.sale_price or 0.0), shoe.sale_date or date.min),
+            reverse=True,
+        )[:10]
+
+        today = local_today()
+        current_month_start, current_month_end = month_date_range(today)
+        previous_month_start, previous_month_end = previous_month_date_range(today)
+
+        def sales_for_period(start: date, end: date) -> dict:
+            period_shoes = [
+                shoe for shoe in sold_shoes if shoe.sale_date and start <= shoe.sale_date <= end
+            ]
+            return {
+                "value": sum(float(shoe.sale_price or 0.0) for shoe in period_shoes),
+                "count": len(period_shoes),
+            }
+
+        current_month_sales = sales_for_period(current_month_start, current_month_end)
+        previous_month_sales = sales_for_period(previous_month_start, previous_month_end)
+        if previous_month_sales["value"] > 0:
+            monthly_change_percent = (
+                (current_month_sales["value"] - previous_month_sales["value"])
+                / previous_month_sales["value"]
+                * 100.0
+            )
+        else:
+            monthly_change_percent = None
+
+        polish_months = (
+            "styczeń", "luty", "marzec", "kwiecień", "maj", "czerwiec",
+            "lipiec", "sierpień", "wrzesień", "październik", "listopad", "grudzień",
+        )
+        monthly_statistics = {
+            "current": current_month_sales,
+            "previous": previous_month_sales,
+            "current_label": f"{polish_months[current_month_start.month - 1]} {current_month_start.year}",
+            "previous_label": f"{polish_months[previous_month_start.month - 1]} {previous_month_start.year}",
+            "change_percent": monthly_change_percent,
+        }
+
+        oldest_available_shoes = []
+        for shoe in sorted(
+            available_shoes,
+            key=lambda item: item.created_at or datetime.max,
+        )[:10]:
+            created_date = shoe.created_at.date() if shoe.created_at else today
+            oldest_available_shoes.append({
+                "shoe": shoe,
+                "days_in_inventory": max((today - created_date).days, 0),
+            })
+
+        attention_pallets = []
+        for pallet in pallets:
+            return_data = pallet_returns[pallet.id]
+            age_days = max((today - pallet.delivery_date).days, 0)
+            if return_data["return_percent"] < 50.0 and age_days >= 30 and return_data["total_count"] > 0:
+                attention_pallets.append({
+                    "pallet": pallet,
+                    "age_days": age_days,
+                    "return_percent": return_data["return_percent"],
+                    "sold_count": return_data["sold_count"],
+                    "total_count": return_data["total_count"],
+                    "missing_to_return": max(
+                        float(pallet.purchase_gross or 0.0) - return_data["sold_value"], 0.0
+                    ),
+                })
+        attention_pallets.sort(key=lambda item: (item["return_percent"], -item["age_days"]))
+        attention_pallets = attention_pallets[:8]
+
+        dashboard_shoe_ids = [shoe.id for shoe in top_sold_shoes]
+        dashboard_photos = (
+            session.query(ShoePhoto)
+            .filter(ShoePhoto.shoe_id.in_(dashboard_shoe_ids))
+            .order_by(ShoePhoto.sort_order.asc(), ShoePhoto.id.asc())
+            .all()
+            if dashboard_shoe_ids
+            else []
+        )
+        dashboard_first_photo_by_shoe = {}
+        for photo in dashboard_photos:
+            dashboard_first_photo_by_shoe.setdefault(photo.shoe_id, photo)
 
         global_shoes = []
         first_photo_by_shoe = {}
@@ -230,6 +390,14 @@ def home():
         shoe_q=shoe_q,
         global_shoes=global_shoes,
         first_photo_by_shoe=first_photo_by_shoe,
+        pallet_returns=pallet_returns,
+        inventory_summary=inventory_summary,
+        price_statistics=price_statistics,
+        top_sold_shoes=top_sold_shoes,
+        dashboard_first_photo_by_shoe=dashboard_first_photo_by_shoe,
+        monthly_statistics=monthly_statistics,
+        oldest_available_shoes=oldest_available_shoes,
+        attention_pallets=attention_pallets,
     )
 
 
