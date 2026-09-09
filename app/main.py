@@ -1,5 +1,4 @@
 from datetime import date, datetime
-from io import BytesIO
 import os
 import re
 from statistics import median
@@ -14,11 +13,9 @@ if __package__ is None or __package__ == "":
 from flask import Flask, abort, redirect, render_template, request, send_file, url_for
 from sqlalchemy import case, func, or_
 from sqlalchemy.orm import joinedload
-from openpyxl import Workbook
-from openpyxl.styles import Alignment, Font, PatternFill
 
 from app.database import Base, engine, get_session
-from app.models import Pallet, Shoe, ShoePhoto, VintedAccount
+from app.models import Pallet, Shoe, ShoePhoto
 
 
 app = Flask(__name__, static_folder="static", template_folder="templates")
@@ -33,8 +30,6 @@ def ensure_schema_compatibility() -> None:
             conn.exec_driver_sql("ALTER TABLE shoes ADD COLUMN sale_price FLOAT")
         if "sale_date" not in columns:
             conn.exec_driver_sql("ALTER TABLE shoes ADD COLUMN sale_date DATE")
-        if "vinted_account_id" not in columns:
-            conn.exec_driver_sql("ALTER TABLE shoes ADD COLUMN vinted_account_id INTEGER")
 
 
 ensure_schema_compatibility()
@@ -126,19 +121,6 @@ def previous_month_date_range(today: date | None = None) -> tuple[date, date]:
     return previous_month_end.replace(day=1), previous_month_end
 
 
-def parse_percent_rate(raw_value: str, default: float = 3.0) -> float:
-    if not raw_value:
-        return default
-    cleaned = raw_value.strip().replace(",", ".")
-    try:
-        value = float(cleaned)
-    except ValueError:
-        return default
-    if value < 0:
-        return default
-    return value
-
-
 @app.get("/health")
 def health():
     return {"status": "ok"}
@@ -154,26 +136,7 @@ def media_file(rel_path: str):
 
 @app.get("/")
 def home():
-    month_start, month_end = month_date_range()
-    start_raw = request.args.get("report_start", "").strip()
-    end_raw = request.args.get("report_end", "").strip()
-    rate_raw = request.args.get("tax_rate", "").strip()
     shoe_q = request.args.get("shoe_q", "").strip()
-
-    try:
-        report_start = datetime.strptime(start_raw, "%Y-%m-%d").date() if start_raw else month_start
-    except ValueError:
-        report_start = month_start
-
-    try:
-        report_end = datetime.strptime(end_raw, "%Y-%m-%d").date() if end_raw else month_end
-    except ValueError:
-        report_end = month_end
-
-    if report_end < report_start:
-        report_end = report_start
-
-    tax_rate = parse_percent_rate(rate_raw, default=3.0)
 
     with get_session() as session:
         pallets = session.query(Pallet).order_by(Pallet.id.desc()).all()
@@ -212,7 +175,7 @@ def home():
 
         all_shoes = (
             session.query(Shoe)
-            .options(joinedload(Shoe.pallet), joinedload(Shoe.vinted_account))
+            .options(joinedload(Shoe.pallet))
             .order_by(Shoe.id.desc())
             .all()
         )
@@ -367,26 +330,9 @@ def home():
                 shoe_id: shoe_photos[0] for shoe_id, shoe_photos in photos_by_shoe.items() if shoe_photos
             }
 
-        sold_in_range = (
-            session.query(Shoe)
-            .filter(
-                Shoe.status == "sold",
-                Shoe.sale_date.isnot(None),
-                Shoe.sale_date >= report_start,
-                Shoe.sale_date <= report_end,
-            )
-            .all()
-        )
-
-        report_total_sales = sum((s.sale_price or 0.0) for s in sold_in_range)
-
     return render_template(
         "home.html",
         pallets=pallets,
-        report_start=report_start.isoformat(),
-        report_end=report_end.isoformat(),
-        tax_rate=tax_rate,
-        report_total_sales=report_total_sales,
         shoe_q=shoe_q,
         global_shoes=global_shoes,
         first_photo_by_shoe=first_photo_by_shoe,
@@ -406,137 +352,17 @@ def home_post():
     return redirect(url_for("home"), code=303)
 
 
-@app.get("/reports/sold-shoes.xlsx")
-def export_sold_shoes_report():
-    month_start, month_end = month_date_range()
-    start_raw = request.args.get("report_start", "").strip()
-    end_raw = request.args.get("report_end", "").strip()
-    rate_raw = request.args.get("tax_rate", "").strip()
-
-    try:
-        report_start = datetime.strptime(start_raw, "%Y-%m-%d").date() if start_raw else month_start
-    except ValueError:
-        report_start = month_start
-
-    try:
-        report_end = datetime.strptime(end_raw, "%Y-%m-%d").date() if end_raw else month_end
-    except ValueError:
-        report_end = month_end
-
-    if report_end < report_start:
-        report_end = report_start
-
-    tax_rate = parse_percent_rate(rate_raw, default=3.0)
-    tax_multiplier = tax_rate / 100.0
-
-    with get_session() as session:
-        sold_shoes = (
-            session.query(Shoe)
-            .filter(
-                Shoe.status == "sold",
-                Shoe.sale_date.isnot(None),
-                Shoe.sale_date >= report_start,
-                Shoe.sale_date <= report_end,
-            )
-            .order_by(Shoe.sale_date.asc(), Shoe.id.asc())
-            .all()
-        )
-
-    workbook = Workbook()
-    sheet = workbook.active
-    sheet.title = "Sprzedane buty"
-
-    headers = [
-        "ID rekordu",
-        "Data sprzedaży",
-        "ID buta",
-        "Nazwa",
-        "Cena sprzedaży",
-        "Stawka ryczałtu",
-        "Podatek",
-    ]
-    sheet.append(headers)
-
-    header_fill = PatternFill(fill_type="solid", start_color="1F2937", end_color="1F2937")
-    header_font = Font(color="FFFFFF", bold=True)
-
-    for col in range(1, len(headers) + 1):
-        cell = sheet.cell(row=1, column=col)
-        cell.fill = header_fill
-        cell.font = header_font
-        cell.alignment = Alignment(horizontal="center", vertical="center")
-
-    for shoe in sold_shoes:
-        sale_price = float(shoe.sale_price or 0.0)
-        tax_value = sale_price * tax_multiplier
-        sheet.append(
-            [
-                shoe.id,
-                shoe.sale_date.isoformat() if shoe.sale_date else "",
-                shoe.internal_id,
-                shoe.name,
-                sale_price,
-                tax_rate / 100.0,
-                tax_value,
-            ]
-        )
-
-    for row in sheet.iter_rows(min_row=2, min_col=5, max_col=7, max_row=sheet.max_row):
-        row[0].number_format = '#,##0.00 "zł"'
-        row[1].number_format = "0.00%"
-        row[2].number_format = '#,##0.00 "zł"'
-
-    data_last_row = sheet.max_row
-    if data_last_row >= 2:
-        summary_row = data_last_row + 2
-        sheet.cell(row=summary_row, column=4, value="SUMA SPRZEDAŻY").font = Font(bold=True)
-        total_cell = sheet.cell(row=summary_row, column=5, value=f"=SUM(E2:E{data_last_row})")
-        total_cell.number_format = '#,##0.00 "zł"'
-        total_cell.font = Font(bold=True)
-
-        sheet.cell(row=summary_row + 1, column=4, value="SUMA PODATKU").font = Font(bold=True)
-        tax_total_cell = sheet.cell(row=summary_row + 1, column=5, value=f"=SUM(G2:G{data_last_row})")
-        tax_total_cell.number_format = '#,##0.00 "zł"'
-        tax_total_cell.font = Font(bold=True)
-
-    column_widths = {
-        1: 12,
-        2: 16,
-        3: 14,
-        4: 36,
-        5: 18,
-        6: 18,
-        7: 16,
-    }
-    for col_idx, width in column_widths.items():
-        sheet.column_dimensions[chr(64 + col_idx)].width = width
-
-    output = BytesIO()
-    workbook.save(output)
-    output.seek(0)
-
-    filename = f"raport_sprzedanych_butow_{report_start.isoformat()}_{report_end.isoformat()}.xlsx"
-    return send_file(
-        output,
-        as_attachment=True,
-        download_name=filename,
-        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    )
-
-
 @app.get("/db-inspector")
 def db_inspector():
     with get_session() as session:
         pallets = session.query(Pallet).order_by(Pallet.id.asc()).all()
-        shoes = session.query(Shoe).options(joinedload(Shoe.vinted_account)).order_by(Shoe.id.asc()).all()
+        shoes = session.query(Shoe).order_by(Shoe.id.asc()).all()
         photos = session.query(ShoePhoto).order_by(ShoePhoto.id.asc()).all()
-        vinted_accounts = session.query(VintedAccount).order_by(VintedAccount.id.asc()).all()
 
         stats = {
             "pallets_count": len(pallets),
             "shoes_count": len(shoes),
             "photos_count": len(photos),
-            "vinted_accounts_count": len(vinted_accounts),
             "sold_shoes_count": sum(1 for s in shoes if s.status == "sold"),
             "sold_total": sum((s.sale_price or 0.0) for s in shoes if s.status == "sold"),
         }
@@ -546,62 +372,8 @@ def db_inspector():
         pallets=pallets,
         shoes=shoes,
         photos=photos,
-        vinted_accounts=vinted_accounts,
         stats=stats,
     )
-
-
-@app.get("/vinted-accounts")
-def vinted_accounts():
-    with get_session() as session:
-        accounts = session.query(VintedAccount).order_by(VintedAccount.name.asc()).all()
-
-    return render_template("vinted_accounts.html", accounts=accounts)
-
-
-@app.post("/vinted-accounts")
-def create_vinted_account():
-    name = request.form.get("name", "").strip()
-    is_banned = request.form.get("is_banned") == "on"
-
-    if not name:
-        return redirect(url_for("vinted_accounts"))
-
-    with get_session() as session:
-        exists = session.query(VintedAccount).filter(VintedAccount.name == name).first()
-        if not exists:
-            session.add(VintedAccount(name=name, is_banned=is_banned))
-            session.commit()
-
-    return redirect(url_for("vinted_accounts"))
-
-
-@app.post("/vinted-accounts/<int:account_id>")
-def update_vinted_account(account_id: int):
-    name = request.form.get("name", "").strip()
-    is_banned = request.form.get("is_banned") == "on"
-
-    if not name:
-        return redirect(url_for("vinted_accounts"))
-
-    with get_session() as session:
-        account = session.query(VintedAccount).filter(VintedAccount.id == account_id).first()
-        if not account:
-            return redirect(url_for("vinted_accounts"))
-
-        duplicate = (
-            session.query(VintedAccount)
-            .filter(VintedAccount.name == name, VintedAccount.id != account_id)
-            .first()
-        )
-        if duplicate:
-            return redirect(url_for("vinted_accounts"))
-
-        account.name = name
-        account.is_banned = is_banned
-        session.commit()
-
-    return redirect(url_for("vinted_accounts"))
 
 
 @app.get("/pallets/<int:pallet_id>")
@@ -614,9 +386,7 @@ def pallet_detail(pallet_id: int):
         if not pallet:
             return redirect(url_for("home"))
 
-        vinted_accounts = session.query(VintedAccount).order_by(VintedAccount.is_banned.asc(), VintedAccount.name.asc()).all()
-
-        shoes_query = session.query(Shoe).options(joinedload(Shoe.vinted_account)).filter(Shoe.pallet_id == pallet_id)
+        shoes_query = session.query(Shoe).filter(Shoe.pallet_id == pallet_id)
         if status_filter in {"available", "sold"}:
             shoes_query = shoes_query.filter(Shoe.status == status_filter)
         if query_text:
@@ -670,14 +440,13 @@ def pallet_detail(pallet_id: int):
         total_shoes_count=total_shoes_count,
         sold_shoes_count=sold_shoes_count,
         sold_value_label=sold_value_label,
-        vinted_accounts=vinted_accounts,
     )
 
 
 @app.get("/shoes/<int:shoe_id>")
 def shoe_detail(shoe_id: int):
     with get_session() as session:
-        shoe = session.query(Shoe).options(joinedload(Shoe.vinted_account)).filter(Shoe.id == shoe_id).first()
+        shoe = session.query(Shoe).filter(Shoe.id == shoe_id).first()
         if not shoe:
             return redirect(url_for("home"))
 
@@ -693,7 +462,6 @@ def shoe_detail(shoe_id: int):
         )
 
         expected_dir = str(expected_shoe_dir(pallet.code, shoe.internal_id))
-        vinted_accounts = session.query(VintedAccount).order_by(VintedAccount.is_banned.asc(), VintedAccount.name.asc()).all()
 
     return render_template(
         "shoe_detail.html",
@@ -702,7 +470,6 @@ def shoe_detail(shoe_id: int):
         photos=photos,
         expected_dir=expected_dir,
         default_sale_date=local_today().isoformat(),
-        vinted_accounts=vinted_accounts,
     )
 
 
@@ -783,8 +550,6 @@ def create_shoe(pallet_id: int):
     internal_id = request.form["internal_id"].strip()
     name = request.form["name"].strip()
     description = request.form.get("description", "").strip() or None
-    vinted_account_raw = request.form.get("vinted_account_id", "").strip()
-    vinted_account_id = int(vinted_account_raw) if vinted_account_raw.isdigit() else None
 
     if not internal_id or not name:
         return redirect(url_for("pallet_detail", pallet_id=pallet_id))
@@ -794,17 +559,11 @@ def create_shoe(pallet_id: int):
         if exists:
             return redirect(url_for("pallet_detail", pallet_id=pallet_id, q=internal_id))
 
-        if vinted_account_id is not None:
-            account = session.query(VintedAccount).filter(VintedAccount.id == vinted_account_id).first()
-            if not account:
-                vinted_account_id = None
-
         shoe = Shoe(
             pallet_id=pallet_id,
             internal_id=internal_id,
             name=name,
             description=description,
-            vinted_account_id=vinted_account_id,
             status="available",
         )
         session.add(shoe)
@@ -818,8 +577,6 @@ def update_shoe_details(shoe_id: int):
     internal_id = request.form.get("internal_id", "").strip()
     name = request.form.get("name", "").strip()
     description = request.form.get("description", "").strip() or None
-    vinted_account_raw = request.form.get("vinted_account_id", "").strip()
-    vinted_account_id = int(vinted_account_raw) if vinted_account_raw.isdigit() else None
 
     if not internal_id or not name:
         return redirect(url_for("shoe_detail", shoe_id=shoe_id))
@@ -833,15 +590,9 @@ def update_shoe_details(shoe_id: int):
         if duplicate:
             return redirect(url_for("shoe_detail", shoe_id=shoe_id))
 
-        if vinted_account_id is not None:
-            account = session.query(VintedAccount).filter(VintedAccount.id == vinted_account_id).first()
-            if not account:
-                vinted_account_id = None
-
         shoe.internal_id = internal_id
         shoe.name = name
         shoe.description = description
-        shoe.vinted_account_id = vinted_account_id
         session.commit()
 
     return redirect(url_for("shoe_detail", shoe_id=shoe_id))

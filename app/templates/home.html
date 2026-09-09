@@ -7,21 +7,6 @@
   <p class="hero-subtitle">Zarządzaj dostawami butów, stanem magazynu i sprzedażą w jednym miejscu.</p>
   <div class="inline-form-wrap" style="margin-top: 10px; gap: 10px; align-items: center; flex-wrap: wrap;">
     <a class="btn-primary btn-small" href="/db-inspector">Otwórz inspektor bazy</a>
-    <form method="get" action="/reports/sold-shoes.xlsx" class="inline-form" style="gap: 10px; align-items: end; flex-wrap: wrap;">
-      <label>
-        Data od
-        <input type="date" name="report_start" value="{{ report_start }}" required />
-      </label>
-      <label>
-        Data do
-        <input type="date" name="report_end" value="{{ report_end }}" required />
-      </label>
-      <label>
-        Stawka ryczałtu (%)
-        <input type="number" name="tax_rate" step="0.01" min="0" value="{{ '%.2f'|format(tax_rate) }}" required />
-      </label>
-      <button type="submit" class="btn-primary btn-small">Pobierz raport Excel (sprzedane buty)</button>
-    </form>
   </div>
 </section>
 
@@ -236,7 +221,7 @@
           {% endif %}
           <span class="top-sale-info">
             <strong>{{ shoe.name }}</strong>
-            <small>{{ shoe.internal_id }} · {{ shoe.pallet.code }}{% if shoe.vinted_account %} · {{ shoe.vinted_account.name }}{% endif %}</small>
+            <small>{{ shoe.internal_id }} · {{ shoe.pallet.code }}</small>
           </span>
           <span class="top-sale-date">{{ shoe.sale_date or "—" }}</span>
           <strong class="top-sale-price">{{ "%.2f"|format(shoe.sale_price) }} zł</strong>
@@ -316,7 +301,7 @@
         <a href="/shoes/{{ item.shoe.id }}" class="compact-row">
           <span class="compact-main">
             <strong>{{ item.shoe.internal_id }} · {{ item.shoe.name }}</strong>
-            <small>{{ item.shoe.pallet.code }}{% if item.shoe.vinted_account %} · {{ item.shoe.vinted_account.name }}{% endif %}</small>
+            <small>{{ item.shoe.pallet.code }}</small>
           </span>
           <span class="age-badge">{{ item.days_in_inventory }} dni</span>
         </a>

@@ -17,14 +17,6 @@
       <span class="badge available">dostępne</span>
     {% endif %}
   </strong></div>
-  <div class="detail-meta-item"><span>Konto Vinted</span><strong>
-    {% if shoe.vinted_account %}
-      <strong>{{ shoe.vinted_account.name }}</strong>
-      {% if shoe.vinted_account.is_banned %}<span class="badge sold">zbanowane</span>{% endif %}
-    {% else %}
-      <span class="muted">brak</span>
-    {% endif %}
-  </strong></div>
   <div class="detail-meta-item"><span>Cena sprzedaży</span><strong>
     {% if shoe.sale_price is not none %}
       <strong>{{ "%.2f"|format(shoe.sale_price) }} zł</strong>
@@ -93,17 +85,6 @@
       Tytuł / nazwa
       <input type="text" name="name" value="{{ shoe.name }}" required />
     </label>
-    <label>
-      Konto Vinted
-      <select name="vinted_account_id">
-        <option value="">Brak przypisanego konta</option>
-        {% for account in vinted_accounts %}
-          <option value="{{ account.id }}" {% if shoe.vinted_account_id == account.id %}selected{% endif %}>
-            {{ account.name }}{% if account.is_banned %} (zbanowane){% endif %}
-          </option>
-        {% endfor %}
-      </select>
-    </label>
     <label class="full">
       Opis
       <textarea name="description" rows="5" placeholder="opcjonalnie">{{ shoe.description or "" }}</textarea>
@@ -136,7 +117,10 @@
     <div class="gallery-grid">
       {% for p in photos %}
       <article class="photo-card">
-        <img src="/media/{{ p.file_path }}" alt="{{ shoe.internal_id }}" class="gallery-image" />
+        <button type="button" class="gallery-image-button js-gallery-open" data-src="/media/{{ p.file_path }}" data-alt="{{ shoe.internal_id }} — zdjęcie {{ loop.index }}">
+          <img src="/media/{{ p.file_path }}" alt="{{ shoe.internal_id }}" class="gallery-image" />
+          <span class="gallery-zoom-hint">⌕ Powiększ</span>
+        </button>
         <div class="photo-meta">
           <span class="photo-path">{{ p.file_path }}</span>
         </div>
@@ -147,6 +131,46 @@
     <p class="muted">Brak zdjęć dla tego buta.</p>
   {% endif %}
 </section>
+
+<div class="image-lightbox" id="image-lightbox" aria-hidden="true" role="dialog" aria-modal="true" aria-label="Podgląd zdjęcia">
+  <button type="button" class="image-lightbox-close" aria-label="Zamknij podgląd">×</button>
+  <img src="" alt="" class="image-lightbox-image" />
+  <p class="image-lightbox-caption"></p>
+</div>
+
+<script>
+  const lightbox = document.getElementById('image-lightbox');
+  const lightboxImage = lightbox.querySelector('.image-lightbox-image');
+  const lightboxCaption = lightbox.querySelector('.image-lightbox-caption');
+  const closeButton = lightbox.querySelector('.image-lightbox-close');
+
+  const closeLightbox = () => {
+    lightbox.classList.remove('is-open');
+    lightbox.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('lightbox-open');
+    lightboxImage.src = '';
+  };
+
+  document.querySelectorAll('.js-gallery-open').forEach((button) => {
+    button.addEventListener('click', () => {
+      lightboxImage.src = button.dataset.src;
+      lightboxImage.alt = button.dataset.alt;
+      lightboxCaption.textContent = button.dataset.alt;
+      lightbox.classList.add('is-open');
+      lightbox.setAttribute('aria-hidden', 'false');
+      document.body.classList.add('lightbox-open');
+      closeButton.focus();
+    });
+  });
+
+  closeButton.addEventListener('click', closeLightbox);
+  lightbox.addEventListener('click', (event) => {
+    if (event.target === lightbox) closeLightbox();
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && lightbox.classList.contains('is-open')) closeLightbox();
+  });
+</script>
 
 <p><a class="link-muted" href="/pallets/{{ pallet.id }}">← Powrót do listy butów</a></p>
 {% endblock %}

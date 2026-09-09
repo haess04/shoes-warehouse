@@ -63,17 +63,6 @@
       Nazwa
       <input type="text" name="name" placeholder="np. Nike Air Max" required />
     </label>
-    <label>
-      Konto Vinted
-      <select name="vinted_account_id">
-        <option value="">Brak przypisanego konta</option>
-        {% for account in vinted_accounts %}
-          <option value="{{ account.id }}">
-            {{ account.name }}{% if account.is_banned %} (zbanowane){% endif %}
-          </option>
-        {% endfor %}
-      </select>
-    </label>
     <label class="full">
       Opis (uszkodzenia / uwagi)
       <textarea name="description" rows="3" placeholder="opcjonalnie"></textarea>
@@ -109,7 +98,6 @@
         <th>ID rekordu</th>
         <th>ID buta</th>
         <th>Nazwa</th>
-        <th>Konto Vinted</th>
         <th>Zdjęcie</th>
         <th>Status</th>
       </tr>
@@ -125,13 +113,6 @@
           <a href="/shoes/{{ s.id }}" class="shoe-name-truncate" title="{{ s.name }}">
             {{ short_name }}{% if words|length > 10 %}...{% endif %}
           </a>
-        </td>
-        <td data-label="Konto Vinted">
-          {% if s.vinted_account %}
-            {{ s.vinted_account.name }}{% if s.vinted_account.is_banned %} <span class="badge sold">ban</span>{% endif %}
-          {% else %}
-            <span class="muted">Brak</span>
-          {% endif %}
         </td>
         <td data-label="Zdjęcie">
           {% if first_photo_by_shoe.get(s.id) %}
