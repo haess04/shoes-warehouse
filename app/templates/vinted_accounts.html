@@ -2,12 +2,13 @@
 
 {% block content %}
 <section class="hero card">
+  <span class="section-kicker">Kanały sprzedaży</span>
   <h1>Konta Vinted</h1>
   <p class="hero-subtitle">Zarządzaj kontami, na których wystawiasz buty.</p>
 </section>
 
 <section class="card">
-  <h2>Dodaj konto</h2>
+  <div class="section-heading"><span class="section-icon">＋</span><div><span class="section-kicker">Nowe konto</span><h2>Dodaj konto</h2></div></div>
   <form method="post" action="/vinted-accounts" class="form-grid">
     <label>
       Nazwa konta
@@ -25,7 +26,10 @@
 </section>
 
 <section class="card">
-  <h2>Lista kont</h2>
+  <div class="section-heading section-heading-spread">
+    <div class="section-heading"><span class="section-icon">◇</span><div><span class="section-kicker">Profile sprzedażowe</span><h2>Lista kont</h2></div></div>
+    <span class="count-pill">{{ accounts|length }} kont</span>
+  </div>
   {% if accounts %}
   <div class="table-wrap">
     <table>

@@ -13,12 +13,12 @@
 
     <header class="topbar">
       <a class="brand" href="/">
-        <img src="/static/favicon.svg" alt="Magazynier" class="brand-logo" />
-        <span>MAGAZYNIER</span>
+        <span class="brand-logo-wrap"><img src="/static/favicon.svg" alt="Magazynier" class="brand-logo" /></span>
+        <span class="brand-copy"><strong>MAGAZYNIER</strong><small>panel magazynowy</small></span>
       </a>
       <nav class="topbar-nav">
-        <a href="/">Palety</a>
-        <a href="/vinted-accounts">Konta Vinted</a>
+        <a href="/" class="{% if request.path == '/' or request.path.startswith('/pallets') or request.path.startswith('/shoes') %}active{% endif %}"><span>▦</span> Palety</a>
+        <a href="/vinted-accounts" class="{% if request.path.startswith('/vinted-accounts') %}active{% endif %}"><span>◇</span> Konta Vinted</a>
       </nav>
     </header>
 

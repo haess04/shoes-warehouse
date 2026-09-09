@@ -2,8 +2,9 @@
 
 {% block content %}
 <section class="hero card">
-  <h1>Magazynier — Palety</h1>
-  <p>Nowoczesny panel do zarządzania dostawami butów, stanem i sprzedażą.</p>
+  <span class="section-kicker">Centrum zarządzania</span>
+  <h1>Magazynier <span class="title-accent">— Palety</span></h1>
+  <p class="hero-subtitle">Zarządzaj dostawami butów, stanem magazynu i sprzedażą w jednym miejscu.</p>
   <div class="inline-form-wrap" style="margin-top: 10px; gap: 10px; align-items: center; flex-wrap: wrap;">
     <a class="btn-primary btn-small" href="/db-inspector">Otwórz inspektor bazy</a>
     <form method="get" action="/reports/sold-shoes.xlsx" class="inline-form" style="gap: 10px; align-items: end; flex-wrap: wrap;">
@@ -25,7 +26,10 @@
 </section>
 
 <section class="card">
-  <h2>Szukaj butów we wszystkich paletach i boxach</h2>
+  <div class="section-heading">
+    <span class="section-icon">⌕</span>
+    <div><span class="section-kicker">Szybki dostęp</span><h2>Szukaj butów we wszystkich paletach i boxach</h2></div>
+  </div>
   <form method="get" action="/" class="search-row">
     <input type="text" name="shoe_q" value="{{ shoe_q }}" placeholder="Szukaj po ID buta, nazwie albo kodzie palety/boxa" />
     <button type="submit" class="btn-primary">Szukaj</button>
@@ -83,7 +87,10 @@
 </section>
 
 <section class="card">
-  <h2>Dodaj paletę</h2>
+  <div class="section-heading">
+    <span class="section-icon">＋</span>
+    <div><span class="section-kicker">Nowa dostawa</span><h2>Dodaj paletę lub box</h2></div>
+  </div>
   <form method="post" action="/pallets" class="form-grid">
     <label>
       Kod palety
@@ -106,7 +113,10 @@
 </section>
 
 <section class="card">
-  <h2>Lista palet</h2>
+  <div class="section-heading section-heading-spread">
+    <div class="section-heading"><span class="section-icon">▦</span><div><span class="section-kicker">Magazyn</span><h2>Lista palet</h2></div></div>
+    <span class="count-pill">{{ pallets|length }} pozycji</span>
+  </div>
   {% if pallets %}
   <div class="table-wrap">
   <table>

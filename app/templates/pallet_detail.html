@@ -2,12 +2,13 @@
 
 {% block content %}
 <section class="hero card">
+  <span class="section-kicker">Szczegóły palety / boxa</span>
   <h1>{{ pallet.code }}</h1>
   <p class="hero-subtitle">
     Dostawa: {{ pallet.delivery_date }} · Koszt zakupu: {{ "%.2f"|format(pallet.purchase_gross) }} zł
   </p>
-  <div class="card" style="margin: 12px 0 16px 0; background: rgba(255, 255, 255, 0.03); box-shadow: none;">
-    <h2>Notatki</h2>
+  <div class="inset-panel">
+    <div class="section-heading"><span class="section-icon">✎</span><div><span class="section-kicker">Informacje dodatkowe</span><h2>Notatki</h2></div></div>
     <p class="description-text">{{ pallet.notes or "Brak notatek" }}</p>
     <form method="post" action="/pallets/{{ pallet.id }}/notes" class="form-grid" style="margin-top: 10px;">
       <label class="full">
@@ -46,7 +47,7 @@
 </section>
 
 <section class="card">
-  <h2>Dodaj buta</h2>
+  <div class="section-heading"><span class="section-icon">＋</span><div><span class="section-kicker">Nowy produkt</span><h2>Dodaj buta</h2></div></div>
   <form method="post" action="/pallets/{{ pallet.id }}/shoes" class="form-grid">
     <label>
       Numer identyfikacyjny
@@ -82,7 +83,10 @@
 </section>
 
 <section class="card">
-  <h2>Buty w palecie</h2>
+  <div class="section-heading section-heading-spread">
+    <div class="section-heading"><span class="section-icon">◇</span><div><span class="section-kicker">Zawartość</span><h2>Buty w palecie</h2></div></div>
+    <span class="count-pill">{{ total_shoes_count }} pozycji</span>
+  </div>
   <form method="post" action="/pallets/{{ pallet.id }}/photos/sync-all" class="inline-form" style="margin-bottom: 12px;">
     <button type="submit" class="btn-primary">Synchronizuj zdjęcia wszystkich butów</button>
   </form>

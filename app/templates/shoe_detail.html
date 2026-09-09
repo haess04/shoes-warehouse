@@ -6,41 +6,40 @@
 </div>
 
 <section class="hero card">
-  <h1>But: {{ shoe.internal_id }} — {{ shoe.name }}</h1>
-  <p>Paleta: <a href="/pallets/{{ pallet.id }}">{{ pallet.code }}</a></p>
-  <p>
-    Status:
+  <span class="section-kicker">Karta produktu</span>
+  <h1><span class="title-accent">{{ shoe.internal_id }}</span> — {{ shoe.name }}</h1>
+  <div class="detail-meta-grid">
+  <div class="detail-meta-item"><span>Paleta / box</span><strong><a href="/pallets/{{ pallet.id }}">{{ pallet.code }}</a></strong></div>
+  <div class="detail-meta-item"><span>Status</span><strong>
     {% if shoe.status == "sold" %}
       <span class="badge sold">sprzedane</span>
     {% else %}
       <span class="badge available">dostępne</span>
     {% endif %}
-  </p>
-  <p>
-    Konto Vinted:
+  </strong></div>
+  <div class="detail-meta-item"><span>Konto Vinted</span><strong>
     {% if shoe.vinted_account %}
       <strong>{{ shoe.vinted_account.name }}</strong>
       {% if shoe.vinted_account.is_banned %}<span class="badge sold">zbanowane</span>{% endif %}
     {% else %}
       <span class="muted">brak</span>
     {% endif %}
-  </p>
-  <p>
-    Cena sprzedaży:
+  </strong></div>
+  <div class="detail-meta-item"><span>Cena sprzedaży</span><strong>
     {% if shoe.sale_price is not none %}
       <strong>{{ "%.2f"|format(shoe.sale_price) }} zł</strong>
     {% else %}
       <span class="muted">brak</span>
     {% endif %}
-  </p>
-  <p>
-    Data sprzedaży:
+  </strong></div>
+  <div class="detail-meta-item"><span>Data sprzedaży</span><strong>
     {% if shoe.sale_date %}
       <strong>{{ shoe.sale_date }}</strong>
     {% else %}
       <span class="muted">brak</span>
     {% endif %}
-  </p>
+  </strong></div>
+  </div>
   <div class="inline-form-wrap" style="margin-top: 8px;">
     <form method="post" action="/shoes/{{ shoe.id }}/toggle-status" class="inline-form">
       {% if shoe.status != "sold" %}
@@ -84,7 +83,7 @@
 </section>
 
 <section class="card">
-  <h2>Dane buta</h2>
+  <div class="section-heading"><span class="section-icon">✎</span><div><span class="section-kicker">Edycja produktu</span><h2>Dane buta</h2></div></div>
   <form method="post" action="/shoes/{{ shoe.id }}/details" class="form-grid">
     <label>
       ID buta
@@ -117,8 +116,11 @@
 </section>
 
 <section class="card">
-  <h2>Zdjęcia</h2>
-  <p class="muted">Folder docelowy: {{ expected_dir }}</p>
+  <div class="section-heading section-heading-spread">
+    <div class="section-heading"><span class="section-icon">▧</span><div><span class="section-kicker">Materiały</span><h2>Zdjęcia</h2></div></div>
+    <span class="count-pill">{{ photos|length }} zdjęć</span>
+  </div>
+  <p class="path-display">Folder docelowy: {{ expected_dir }}</p>
 
   <div class="inline-form-wrap">
     <form method="post" action="/shoes/{{ shoe.id }}/photos/sync" class="inline-form">
