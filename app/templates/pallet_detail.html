@@ -13,18 +13,17 @@
     <form method="post" action="/pallets/{{ pallet.id }}/notes" class="form-grid" style="margin-top: 10px;">
       <label class="full">
         Edytuj notatki
-        <textarea name="notes" rows="4" placeholder="opcjonalnie">{{ pallet.notes or "" }}</textarea>
+        <textarea name="notes" rows="4" maxlength="10000" placeholder="opcjonalnie">{{ form_value('notes', pallet.notes or '') }}</textarea>
       </label>
       <button type="submit" class="btn-primary btn-small">Zapisz notatki</button>
     </form>
   </div>
   <form method="post" action="/pallets/{{ pallet.id }}/price" class="inline-form" style="margin: 10px 0 16px 0; gap: 8px;">
     <input
-      type="number"
-      step="0.01"
-      min="0"
+      type="text"
+      inputmode="decimal"
       name="purchase_gross"
-      value="{{ '%.2f'|format(pallet.purchase_gross) }}"
+      value="{{ form_value('purchase_gross', '%.2f'|format(pallet.purchase_gross)) }}"
       required
       style="max-width: 180px;"
     />
@@ -54,18 +53,19 @@
       <input
         type="text"
         name="internal_id"
-        value="{{ default_internal_id }}"
+        value="{{ form_value('internal_id', default_internal_id) }}"
+        maxlength="100"
         placeholder="np. SHOE-0001"
         required
       />
     </label>
     <label>
       Nazwa
-      <input type="text" name="name" placeholder="np. Nike Air Max" required />
+      <input type="text" name="name" value="{{ form_value('name') }}" maxlength="255" placeholder="np. Nike Air Max" required />
     </label>
     <label class="full">
       Opis (uszkodzenia / uwagi)
-      <textarea name="description" rows="3" placeholder="opcjonalnie"></textarea>
+      <textarea name="description" rows="3" maxlength="10000" placeholder="opcjonalnie">{{ form_value('description') }}</textarea>
     </label>
     <button type="submit" class="btn-primary">Dodaj buta</button>
   </form>

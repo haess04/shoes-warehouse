@@ -79,19 +79,19 @@
   <form method="post" action="/pallets" class="form-grid">
     <label>
       Kod palety
-      <input type="text" name="code" placeholder="np. PALETA_A" required />
+      <input type="text" name="code" value="{{ form_value('code') }}" maxlength="100" placeholder="np. PALETA_A" required />
     </label>
     <label>
       Data dostawy
-      <input type="date" name="delivery_date" required />
+      <input type="{{ 'text' if g.form_errors and g.form_errors.get('delivery_date') else 'date' }}" name="delivery_date" value="{{ form_value('delivery_date') }}" required />
     </label>
     <label>
       Cena brutto (PLN)
-      <input type="number" step="0.01" min="0" name="purchase_gross" required />
+      <input type="text" inputmode="decimal" name="purchase_gross" value="{{ form_value('purchase_gross') }}" placeholder="np. 1250,50" required />
     </label>
     <label class="full">
       Notatki
-      <textarea name="notes" rows="3" placeholder="opcjonalnie"></textarea>
+      <textarea name="notes" rows="3" maxlength="10000" placeholder="opcjonalnie">{{ form_value('notes') }}</textarea>
     </label>
     <button type="submit" class="btn-primary">Zapisz paletę</button>
   </form>
@@ -148,7 +148,7 @@
             method="post"
             action="/pallets/{{ p.id }}/delete"
             class="inline-form"
-            onsubmit="return confirm('Usunąć paletę {{ p.code }}? Operacja usunie też wszystkie buty i zdjęcia z bazy.')"
+            data-confirm="Usunąć paletę {{ p.code }}? Operacja usunie też wszystkie buty i zdjęcia z bazy."
           >
             <button type="submit" class="btn-danger btn-small">Usuń paletę</button>
           </form>

@@ -79,6 +79,58 @@ python -m app.main
 http://localhost:5000
 ```
 
+### Konfiguracja i testy — partia 1
+
+Domyślna baza i zdjęcia są odnajdywane względem katalogu projektu, nie bieżącego
+katalogu terminala. Istniejące dane nie są przenoszone. Dotychczasowe uruchomienie
+`python -m app.main` oraz `python app/main.py` pozostają dostępne.
+
+Aplikację można również utworzyć przez fabrykę `app.create_app()`; alternatywny start:
+
+```powershell
+python -m flask --app app:create_app run --host 0.0.0.0
+```
+
+Samo importowanie modułów nie otwiera bazy, nie tworzy katalogów i nie aktualizuje
+schematu. Inicjalizacja następuje dopiero podczas wywołania fabryki. Przy osadzaniu
+aplikacji można przekazać `DATA_ROOT` — katalog zawierający `inventory.db` i `PALETY`.
+Ścieżka względna jest rozwiązywana względem projektu. Nie wskazuj przypadkowego
+katalogu: nowa lokalizacja oznacza nowy magazyn, a nie przeniesienie starego.
+
+Testy korzystają wyłącznie z tymczasowych baz i zdjęć; tryb `TESTING` wymaga
+oddzielnego `DATA_ROOT`. Nie wymagają instalowania dodatkowych zależności:
+
+```powershell
+python -m unittest discover -s tests -v
+```
+
+Ta partia nie wprowadza jeszcze logowania, automatycznych kopii ani produkcyjnego
+serwera. Aplikacja nadal jest przeznaczona wyłącznie do zaufanej sieci lokalnej.
+
+### Walidacja i media — partia 2
+
+- Formularze sprawdzają wymagane pola, duplikaty, długości tekstów i poprawność dat.
+- Ceny przyjmują przecinek lub kropkę, maksymalnie dwa miejsca po przecinku,
+  zakres od 0 do 9 999 999 999,99 zł. Ujemne kwoty, NaN, nieskończoność i zapis
+  wykładniczy są odrzucane. Schemat przechowywania cen nie zmienia się w tej partii.
+- Po błędzie strona zwraca HTTP 422, pokazuje podsumowanie i zachowuje dane formularza.
+  Przy włączonym JavaScript błędy pojawiają się też przy odpowiednich polach.
+  Poprawny zapis kończy się przekierowaniem z jednorazowym potwierdzeniem.
+- Kody palet i ID muszą być bezpiecznymi nazwami katalogów Windows; istniejące
+  rekordy nie są automatycznie przemianowywane.
+- Adresy mediów udostępniają tylko istniejące obrazy z `PALETY/`. Starszy układ
+  `<KOD_PALETY>/<ID_BUTA>/zdjecie.jpg` działa tylko dla poprawnie przypisanych
+  rekordów zdjęć w bazie. Brak możliwości pobrania bazy, konfiguracji czy kodu
+  przez trasę mediów. Nowe zdjęcia umieszczaj w standardowym katalogu `PALETY/`.
+- Synchronizacja informuje o liczbie dodanych i usuniętych powiązań oraz brakujących
+  folderach. Błąd w trakcie synchronizacji wycofuje transakcję, bez usuwania plików.
+
+Do podpisywania sesji z potwierdzeniami aplikacja tworzy lokalny plik `.session-key`
+w katalogu danych. Jest ignorowany przez Git; nie publikuj go ani nie edytuj ręcznie.
+Klucz pozostaje taki sam po restarcie. Samych danych błędnego formularza nie zapisuje
+się w ciasteczkach. Nie jest to jeszcze system logowania ani ochrona CSRF — te
+zabezpieczenia stanowią następną partię.
+
 ## Zdjęcia produktów
 
 Aplikacja nie wysyła zdjęć przez formularz. Zdjęcia należy umieszczać ręcznie w lokalnym katalogu `PALETY` według schematu:

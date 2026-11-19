@@ -21,7 +21,47 @@
       </nav>
     </header>
 
-    <main class="container">{% block content %}{% endblock %}</main>
+    <main class="container">
+      {% for category, message in get_flashed_messages(with_categories=true) %}
+      <div class="notice notice-{{ category }}" role="status">{{ message }}</div>
+      {% endfor %}
+      {% if g.form_errors %}
+      <div class="notice notice-error" role="alert" tabindex="-1" id="form-errors">
+        <strong>Nie zapisano zmian. Popraw formularz:</strong>
+        <ul>{% for field, message in g.form_errors.items() %}<li>{{ message }}</li>{% endfor %}</ul>
+      </div>
+      {% endif %}
+      {% block content %}{% endblock %}
+    </main>
+    <script>
+      document.querySelectorAll('form[data-confirm]').forEach((form) => {
+        form.addEventListener('submit', (event) => {
+          if (!window.confirm(form.dataset.confirm)) event.preventDefault();
+        });
+      });
+    </script>
+    {% if g.form_errors %}
+    <script>
+      // Only mark controls belonging to the submitted form; never inject HTML.
+      const failedPath = {{ request.path|tojson }};
+      const fieldErrors = {{ g.form_errors|tojson }};
+      document.querySelectorAll('form').forEach((form) => {
+        if (new URL(form.action, location.href).pathname !== failedPath) return;
+        Object.entries(fieldErrors).forEach(([name, message]) => {
+          const input = form.elements.namedItem(name);
+          if (!input || !input.setAttribute) return;
+          const error = document.createElement('small');
+          error.id = `field-error-${name}`;
+          error.className = 'field-error';
+          error.textContent = message;
+          input.setAttribute('aria-invalid', 'true');
+          input.setAttribute('aria-describedby', error.id);
+          input.insertAdjacentElement('afterend', error);
+        });
+      });
+      document.getElementById('form-errors').focus();
+    </script>
+    {% endif %}
   </body>
   </html>
 

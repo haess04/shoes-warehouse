@@ -10,37 +10,37 @@ from pathlib import Path
 if __package__ is None or __package__ == "":
     sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
-from flask import Flask, abort, redirect, render_template, request, send_file, url_for
+from flask import Blueprint, abort, current_app, g, redirect, render_template, request, send_file, url_for
 from sqlalchemy import case, func, or_
 from sqlalchemy.orm import joinedload
 
-from app.database import Base, engine, get_session
+from app.database import get_session
 from app.models import Pallet, Shoe, ShoePhoto
+from app.media import IMAGE_EXTENSIONS, safe_media_path
+from app.validation import FormError, calendar_date, form_handler, identifier, money, text
 
 
-app = Flask(__name__, static_folder="static", template_folder="templates")
+routes = Blueprint("inventory", __name__)
 
-Base.metadata.create_all(bind=engine)
-
-
-def ensure_schema_compatibility() -> None:
-    with engine.begin() as conn:
-        columns = [row[1] for row in conn.exec_driver_sql("PRAGMA table_info(shoes)").fetchall()]
-        if "sale_price" not in columns:
-            conn.exec_driver_sql("ALTER TABLE shoes ADD COLUMN sale_price FLOAT")
-        if "sale_date" not in columns:
-            conn.exec_driver_sql("ALTER TABLE shoes ADD COLUMN sale_date DATE")
-
-
-ensure_schema_compatibility()
-
-IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
-PHOTOS_ROOT = Path.cwd() / "PALETY"
-PHOTOS_ROOT.mkdir(parents=True, exist_ok=True)
+PALLET_FORM = {
+    "code": lambda v: identifier(v, "Kod palety"),
+    "delivery_date": lambda v: calendar_date(v, "Data dostawy"),
+    "purchase_gross": lambda v: money(v, "Koszt zakupu"),
+    "notes": lambda v: text(v, "Notatki", 10000, False),
+}
+SHOE_FORM = {
+    "internal_id": lambda v: identifier(v, "ID buta"),
+    "name": lambda v: text(v, "Nazwa", 255),
+    "description": lambda v: text(v, "Opis", 10000, False),
+}
+SALE_FORM = {
+    "sale_price": lambda v: money(v, "Cena sprzedaży"),
+    "sale_date": lambda v: calendar_date(v, "Data sprzedaży"),
+}
 
 
 def expected_shoe_dir(pallet_code: str, shoe_internal_id: str) -> Path:
-    return PHOTOS_ROOT / pallet_code / shoe_internal_id
+    return current_app.config["PHOTOS_ROOT"] / pallet_code / shoe_internal_id
 
 
 def next_internal_id_for_pallet(pallet_code: str, internal_ids: list[str]) -> str:
@@ -58,45 +58,56 @@ def next_internal_id_for_pallet(pallet_code: str, internal_ids: list[str]) -> st
 
 
 def to_rel_path(path_obj: Path) -> str:
-    return str(path_obj.relative_to(Path.cwd())).replace("\\", "/")
+    return path_obj.relative_to(current_app.config["DATA_ROOT"]).as_posix()
 
 
 def is_supported_image(path_obj: Path) -> bool:
     return path_obj.is_file() and path_obj.suffix.lower() in IMAGE_EXTENSIONS
 
 
-def sync_shoe_photos(session, pallet: Pallet, shoe: Shoe) -> None:
+def sync_shoe_photos(session, pallet: Pallet, shoe: Shoe) -> dict:
+    try:
+        identifier(pallet.code, "Kod palety")
+        identifier(shoe.internal_id, "ID buta")
+    except ValueError as exc:
+        raise FormError({"_form": str(exc)}) from exc
     folder = expected_shoe_dir(pallet.code, shoe.internal_id)
     if not folder.exists() or not folder.is_dir():
-        legacy_folder = Path.cwd() / pallet.code / shoe.internal_id
+        legacy_folder = current_app.config["DATA_ROOT"] / pallet.code / shoe.internal_id
         if legacy_folder.exists() and legacy_folder.is_dir():
             folder = legacy_folder
         else:
-            return
+            return {"added": 0, "removed": 0, "missing": 1}
 
-    disk_photos = sorted([p for p in folder.iterdir() if is_supported_image(p)], key=lambda x: x.name.lower())
+    root = current_app.config["DATA_ROOT"].resolve()
+    if not folder.resolve().is_relative_to(root) or folder.resolve() != folder:
+        raise FormError({"_form": "Folder zdjęć wychodzi poza dozwolony katalog."})
+    disk_photos = sorted([p for p in folder.iterdir()
+                          if is_supported_image(p) and p.resolve().is_relative_to(folder.resolve())],
+                         key=lambda x: x.name.lower())
     disk_rel_paths = [to_rel_path(p) for p in disk_photos]
 
     existing = session.query(ShoePhoto).filter(ShoePhoto.shoe_id == shoe.id).all()
     existing_map = {photo.file_path: photo for photo in existing}
+    disk_rel_path_set = set(disk_rel_paths)
+    added = removed = 0
 
     for index, rel_path in enumerate(disk_rel_paths):
         if rel_path in existing_map:
             existing_map[rel_path].sort_order = index
         else:
             session.add(ShoePhoto(shoe_id=shoe.id, file_path=rel_path, sort_order=index))
+            added += 1
 
     for old_path, photo in existing_map.items():
-        if old_path not in set(disk_rel_paths):
+        if old_path not in disk_rel_path_set:
             session.delete(photo)
+            removed += 1
+    return {"added": added, "removed": removed, "missing": 0}
 
 
 def safe_abs_from_rel(rel_path: str) -> Path | None:
-    base = Path.cwd().resolve()
-    target = (base / rel_path).resolve()
-    if str(target).startswith(str(base)):
-        return target
-    return None
+    return safe_media_path(rel_path)
 
 
 def month_date_range(today: date | None = None) -> tuple[date, date]:
@@ -121,20 +132,22 @@ def previous_month_date_range(today: date | None = None) -> tuple[date, date]:
     return previous_month_end.replace(day=1), previous_month_end
 
 
-@app.get("/health")
+@routes.get("/health")
 def health():
     return {"status": "ok"}
 
 
-@app.get("/media/<path:rel_path>")
+@routes.get("/media/<path:rel_path>", merge_slashes=False)
 def media_file(rel_path: str):
     abs_path = safe_abs_from_rel(rel_path)
     if not abs_path or not abs_path.exists() or not abs_path.is_file():
         abort(404)
-    return send_file(abs_path)
+    response = send_file(abs_path)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    return response
 
 
-@app.get("/")
+@routes.get("/")
 def home():
     shoe_q = request.args.get("shoe_q", "").strip()
 
@@ -347,12 +360,12 @@ def home():
     )
 
 
-@app.post("/")
+@routes.post("/")
 def home_post():
-    return redirect(url_for("home"), code=303)
+    return redirect(url_for("inventory.home"), code=303)
 
 
-@app.get("/db-inspector")
+@routes.get("/db-inspector")
 def db_inspector():
     with get_session() as session:
         pallets = session.query(Pallet).order_by(Pallet.id.asc()).all()
@@ -376,7 +389,7 @@ def db_inspector():
     )
 
 
-@app.get("/pallets/<int:pallet_id>")
+@routes.get("/pallets/<int:pallet_id>")
 def pallet_detail(pallet_id: int):
     query_text = request.args.get("q", "").strip()
     status_filter = request.args.get("status", "all").strip().lower()
@@ -384,7 +397,7 @@ def pallet_detail(pallet_id: int):
     with get_session() as session:
         pallet = session.query(Pallet).filter(Pallet.id == pallet_id).first()
         if not pallet:
-            return redirect(url_for("home"))
+            return redirect(url_for("inventory.home"))
 
         shoes_query = session.query(Shoe).filter(Shoe.pallet_id == pallet_id)
         if status_filter in {"available", "sold"}:
@@ -443,16 +456,16 @@ def pallet_detail(pallet_id: int):
     )
 
 
-@app.get("/shoes/<int:shoe_id>")
+@routes.get("/shoes/<int:shoe_id>")
 def shoe_detail(shoe_id: int):
     with get_session() as session:
         shoe = session.query(Shoe).filter(Shoe.id == shoe_id).first()
         if not shoe:
-            return redirect(url_for("home"))
+            return redirect(url_for("inventory.home"))
 
         pallet = session.query(Pallet).filter(Pallet.id == shoe.pallet_id).first()
         if not pallet:
-            return redirect(url_for("home"))
+            return redirect(url_for("inventory.home"))
 
         photos = (
             session.query(ShoePhoto)
@@ -473,16 +486,17 @@ def shoe_detail(shoe_id: int):
     )
 
 
-@app.post("/pallets")
+@routes.post("/pallets")
+@form_handler("home", "Dodano paletę.", PALLET_FORM, "code")
 def create_pallet():
-    code = request.form["code"].strip()
-    delivery_date_raw = request.form["delivery_date"]
-    purchase_gross = float(request.form["purchase_gross"])
-    notes = request.form.get("notes", "").strip() or None
-
-    delivery_date = datetime.strptime(delivery_date_raw, "%Y-%m-%d").date()
+    code = g.validated["code"]
+    delivery_date = g.validated["delivery_date"]
+    purchase_gross = g.validated["purchase_gross"]
+    notes = g.validated["notes"] or None
 
     with get_session() as session:
+        if session.query(Pallet.id).filter(Pallet.code == code).first():
+            raise FormError({"code": "Paleta o takim kodzie już istnieje."})
         pallet = Pallet(
             code=code,
             delivery_date=delivery_date,
@@ -492,72 +506,66 @@ def create_pallet():
         session.add(pallet)
         session.commit()
 
-    return redirect(url_for("home"))
+    return redirect(url_for("inventory.home"))
 
 
-@app.post("/pallets/<int:pallet_id>/delete")
+@routes.post("/pallets/<int:pallet_id>/delete")
+@form_handler("pallet_detail", "Usunięto paletę i jej rekordy z bazy. Pliki zdjęć pozostały na dysku.")
 def delete_pallet(pallet_id: int):
     with get_session() as session:
         pallet = session.query(Pallet).filter(Pallet.id == pallet_id).first()
         if not pallet:
-            return redirect(url_for("home"))
+            return redirect(url_for("inventory.home"))
 
         session.delete(pallet)
         session.commit()
 
-    return redirect(url_for("home"))
+    return redirect(url_for("inventory.home"))
 
 
-@app.post("/pallets/<int:pallet_id>/price")
+@routes.post("/pallets/<int:pallet_id>/price")
+@form_handler("pallet_detail", "Zapisano koszt zakupu.", {"purchase_gross": PALLET_FORM["purchase_gross"]})
 def update_pallet_price(pallet_id: int):
-    price_raw = request.form.get("purchase_gross", "").strip().replace(",", ".")
-    try:
-        price = float(price_raw)
-    except ValueError:
-        return redirect(url_for("pallet_detail", pallet_id=pallet_id))
-
-    if price < 0:
-        return redirect(url_for("pallet_detail", pallet_id=pallet_id))
+    price = g.validated["purchase_gross"]
 
     with get_session() as session:
         pallet = session.query(Pallet).filter(Pallet.id == pallet_id).first()
         if not pallet:
-            return redirect(url_for("home"))
+            return redirect(url_for("inventory.home"))
 
         pallet.purchase_gross = price
         session.commit()
 
-    return redirect(url_for("pallet_detail", pallet_id=pallet_id))
+    return redirect(url_for("inventory.pallet_detail", pallet_id=pallet_id))
 
 
-@app.post("/pallets/<int:pallet_id>/notes")
+@routes.post("/pallets/<int:pallet_id>/notes")
+@form_handler("pallet_detail", "Zapisano notatki.", {"notes": PALLET_FORM["notes"]})
 def update_pallet_notes(pallet_id: int):
-    notes = request.form.get("notes", "").strip() or None
+    notes = g.validated["notes"] or None
 
     with get_session() as session:
         pallet = session.query(Pallet).filter(Pallet.id == pallet_id).first()
         if not pallet:
-            return redirect(url_for("home"))
+            return redirect(url_for("inventory.home"))
 
         pallet.notes = notes
         session.commit()
 
-    return redirect(url_for("pallet_detail", pallet_id=pallet_id))
+    return redirect(url_for("inventory.pallet_detail", pallet_id=pallet_id))
 
 
-@app.post("/pallets/<int:pallet_id>/shoes")
+@routes.post("/pallets/<int:pallet_id>/shoes")
+@form_handler("pallet_detail", "Dodano buta.", SHOE_FORM, "internal_id")
 def create_shoe(pallet_id: int):
-    internal_id = request.form["internal_id"].strip()
-    name = request.form["name"].strip()
-    description = request.form.get("description", "").strip() or None
-
-    if not internal_id or not name:
-        return redirect(url_for("pallet_detail", pallet_id=pallet_id))
+    internal_id = g.validated["internal_id"]
+    name = g.validated["name"]
+    description = g.validated["description"] or None
 
     with get_session() as session:
         exists = session.query(Shoe).filter(Shoe.internal_id == internal_id).first()
         if exists:
-            return redirect(url_for("pallet_detail", pallet_id=pallet_id, q=internal_id))
+            raise FormError({"internal_id": "But o takim ID już istnieje. Wybierz inny identyfikator."})
 
         shoe = Shoe(
             pallet_id=pallet_id,
@@ -569,78 +577,69 @@ def create_shoe(pallet_id: int):
         session.add(shoe)
         session.commit()
 
-    return redirect(url_for("pallet_detail", pallet_id=pallet_id))
+    return redirect(url_for("inventory.pallet_detail", pallet_id=pallet_id))
 
 
-@app.post("/shoes/<int:shoe_id>/details")
+@routes.post("/shoes/<int:shoe_id>/details")
+@form_handler("shoe_detail", "Zapisano dane buta.", SHOE_FORM, "internal_id")
 def update_shoe_details(shoe_id: int):
-    internal_id = request.form.get("internal_id", "").strip()
-    name = request.form.get("name", "").strip()
-    description = request.form.get("description", "").strip() or None
-
-    if not internal_id or not name:
-        return redirect(url_for("shoe_detail", shoe_id=shoe_id))
+    internal_id = g.validated["internal_id"]
+    name = g.validated["name"]
+    description = g.validated["description"] or None
 
     with get_session() as session:
         shoe = session.query(Shoe).filter(Shoe.id == shoe_id).first()
         if not shoe:
-            return redirect(url_for("home"))
+            return redirect(url_for("inventory.home"))
 
         duplicate = session.query(Shoe).filter(Shoe.internal_id == internal_id, Shoe.id != shoe_id).first()
         if duplicate:
-            return redirect(url_for("shoe_detail", shoe_id=shoe_id))
+            raise FormError({"internal_id": "But o takim ID już istnieje."})
 
         shoe.internal_id = internal_id
         shoe.name = name
         shoe.description = description
         session.commit()
 
-    return redirect(url_for("shoe_detail", shoe_id=shoe_id))
+    return redirect(url_for("inventory.shoe_detail", shoe_id=shoe_id))
 
 
-@app.post("/pallets/<int:pallet_id>/photos/sync-all")
+@routes.post("/pallets/<int:pallet_id>/photos/sync-all")
+@form_handler("pallet_detail", "Zakończono synchronizację zdjęć.")
 def sync_all_photos_in_pallet(pallet_id: int):
     with get_session() as session:
         pallet = session.query(Pallet).filter(Pallet.id == pallet_id).first()
         if not pallet:
-            return redirect(url_for("home"))
+            return redirect(url_for("inventory.home"))
 
         shoes = session.query(Shoe).filter(Shoe.pallet_id == pallet_id).all()
+        totals = {"added": 0, "removed": 0, "missing": 0}
         for shoe in shoes:
-            sync_shoe_photos(session, pallet, shoe)
+            stats = sync_shoe_photos(session, pallet, shoe)
+            for key in totals:
+                totals[key] += stats[key]
 
         session.commit()
+        g.success_message = (f"Synchronizacja: dodano {totals['added']}, usunięto powiązania {totals['removed']}. "
+                             f"Brak folderu dla {totals['missing']} produktów. Plików nie usunięto z dysku.")
 
-    return redirect(url_for("pallet_detail", pallet_id=pallet_id))
+    return redirect(url_for("inventory.pallet_detail", pallet_id=pallet_id))
 
 
-@app.post("/shoes/<int:shoe_id>/toggle-status")
+@routes.post("/shoes/<int:shoe_id>/toggle-status")
+@form_handler("shoe_detail", "Zmieniono status buta.")
 def toggle_shoe_status(shoe_id: int):
-    sale_price_raw = request.form.get("sale_price", "").strip()
-    sale_date_raw = request.form.get("sale_date", "").strip()
     with get_session() as session:
         shoe = session.query(Shoe).filter(Shoe.id == shoe_id).first()
         if not shoe:
-            return redirect(url_for("home"))
+            return redirect(url_for("inventory.home"))
 
         if shoe.status == "available":
-            if not sale_price_raw:
-                return redirect(url_for("shoe_detail", shoe_id=shoe_id))
-            try:
-                sale_price = float(sale_price_raw.replace(",", "."))
-            except ValueError:
-                return redirect(url_for("shoe_detail", shoe_id=shoe_id))
+            from app.validation import read_form
 
-            if sale_price < 0:
-                return redirect(url_for("shoe_detail", shoe_id=shoe_id))
-
-            if not sale_date_raw:
-                return redirect(url_for("shoe_detail", shoe_id=shoe_id))
-
-            try:
-                sale_date = datetime.strptime(sale_date_raw, "%Y-%m-%d").date()
-            except ValueError:
-                return redirect(url_for("shoe_detail", shoe_id=shoe_id))
+            g.form_fields = SALE_FORM
+            values = read_form(SALE_FORM)
+            sale_price, sale_date = values["sale_price"], values["sale_date"]
 
             shoe.status = "sold"
             shoe.sale_price = sale_price
@@ -653,80 +652,74 @@ def toggle_shoe_status(shoe_id: int):
         pallet_id = shoe.pallet_id
         session.commit()
 
-    return redirect(url_for("shoe_detail", shoe_id=shoe_id))
+    return redirect(url_for("inventory.shoe_detail", shoe_id=shoe_id))
 
 
-@app.post("/shoes/<int:shoe_id>/sale")
+@routes.post("/shoes/<int:shoe_id>/sale")
+@form_handler("shoe_detail", "Zapisano dane sprzedaży.", SALE_FORM)
 def update_shoe_sale_details(shoe_id: int):
-    sale_price_raw = request.form.get("sale_price", "").strip().replace(",", ".")
-    sale_date_raw = request.form.get("sale_date", "").strip()
 
     with get_session() as session:
         shoe = session.query(Shoe).filter(Shoe.id == shoe_id).first()
         if not shoe:
-            return redirect(url_for("home"))
+            return redirect(url_for("inventory.home"))
 
         if shoe.status != "sold":
-            return redirect(url_for("shoe_detail", shoe_id=shoe_id))
+            raise FormError({"_form": "Najpierw oznacz buta jako sprzedanego."})
 
-        if not sale_price_raw or not sale_date_raw:
-            return redirect(url_for("shoe_detail", shoe_id=shoe_id))
-
-        try:
-            sale_price = float(sale_price_raw)
-            sale_date = datetime.strptime(sale_date_raw, "%Y-%m-%d").date()
-        except ValueError:
-            return redirect(url_for("shoe_detail", shoe_id=shoe_id))
-
-        if sale_price < 0:
-            return redirect(url_for("shoe_detail", shoe_id=shoe_id))
-
-        shoe.sale_price = sale_price
-        shoe.sale_date = sale_date
+        shoe.sale_price = g.validated["sale_price"]
+        shoe.sale_date = g.validated["sale_date"]
         session.commit()
 
-    return redirect(url_for("shoe_detail", shoe_id=shoe_id))
+    return redirect(url_for("inventory.shoe_detail", shoe_id=shoe_id))
 
 
-@app.post("/shoes/<int:shoe_id>/delete")
+@routes.post("/shoes/<int:shoe_id>/delete")
+@form_handler("shoe_detail", "Usunięto buta z bazy. Pliki zdjęć pozostały na dysku.")
 def delete_shoe(shoe_id: int):
     with get_session() as session:
         shoe = session.query(Shoe).filter(Shoe.id == shoe_id).first()
         if not shoe:
-            return redirect(url_for("home"))
+            return redirect(url_for("inventory.home"))
 
         pallet_id = shoe.pallet_id
         session.delete(shoe)
         session.commit()
 
-    return redirect(url_for("pallet_detail", pallet_id=pallet_id))
+    return redirect(url_for("inventory.pallet_detail", pallet_id=pallet_id))
 
 
-@app.post("/shoes/<int:shoe_id>/photos/sync")
+@routes.post("/shoes/<int:shoe_id>/photos/sync")
+@form_handler("shoe_detail", "Zakończono synchronizację zdjęć.")
 def sync_photos_for_shoe(shoe_id: int):
     with get_session() as session:
         shoe = session.query(Shoe).filter(Shoe.id == shoe_id).first()
         if not shoe:
-            return redirect(url_for("home"))
+            return redirect(url_for("inventory.home"))
 
         pallet = session.query(Pallet).filter(Pallet.id == shoe.pallet_id).first()
         if not pallet:
-            return redirect(url_for("home"))
+            return redirect(url_for("inventory.home"))
 
-        sync_shoe_photos(session, pallet, shoe)
+        stats = sync_shoe_photos(session, pallet, shoe)
         session.commit()
+        g.success_message = ("Nie znaleziono folderu zdjęć. Nic nie zmieniono." if stats["missing"] else
+                             f"Zdjęcia: dodano {stats['added']}, usunięto powiązania {stats['removed']}. Plików nie usunięto z dysku.")
         pallet_id = pallet.id
 
-    return redirect(url_for("shoe_detail", shoe_id=shoe_id))
+    return redirect(url_for("inventory.shoe_detail", shoe_id=shoe_id))
 
 
-@app.post("/shoes/<int:shoe_id>/photos")
+@routes.post("/shoes/<int:shoe_id>/photos")
+@form_handler("shoe_detail", "Dodano zdjęcie.", {"file_path": lambda v: text(v, "Ścieżka zdjęcia", 1000)})
 def add_photo_path(shoe_id: int):
-    file_path = request.form.get("file_path", "").strip().replace("\\", "/")
+    file_path = g.validated["file_path"].replace("\\", "/")
+    if safe_abs_from_rel(file_path) is None:
+        raise FormError({"file_path": "Wskaż istniejący obraz w katalogu PALETY. Ścieżki poza magazynem są zabronione."})
     with get_session() as session:
         shoe = session.query(Shoe).filter(Shoe.id == shoe_id).first()
         if not shoe:
-            return redirect(url_for("home"))
+            return redirect(url_for("inventory.home"))
 
         if file_path:
             exists = (
@@ -734,6 +727,8 @@ def add_photo_path(shoe_id: int):
                 .filter(ShoePhoto.shoe_id == shoe.id, ShoePhoto.file_path == file_path)
                 .first()
             )
+            if exists:
+                raise FormError({"file_path": "To zdjęcie jest już przypisane do buta."})
             if not exists:
                 max_order = (
                     session.query(ShoePhoto.sort_order)
@@ -745,27 +740,31 @@ def add_photo_path(shoe_id: int):
                 session.add(ShoePhoto(shoe_id=shoe.id, file_path=file_path, sort_order=next_order))
                 session.commit()
 
-    return redirect(url_for("shoe_detail", shoe_id=shoe_id))
+    return redirect(url_for("inventory.shoe_detail", shoe_id=shoe_id))
 
 
-@app.post("/shoe-photos/<int:photo_id>/delete")
+@routes.post("/shoe-photos/<int:photo_id>/delete")
+@form_handler("home", "Usunięto powiązanie zdjęcia. Plik pozostał na dysku.")
 def delete_photo_path(photo_id: int):
     with get_session() as session:
         photo = session.query(ShoePhoto).filter(ShoePhoto.id == photo_id).first()
         if not photo:
-            return redirect(url_for("home"))
+            return redirect(url_for("inventory.home"))
 
         shoe = session.query(Shoe).filter(Shoe.id == photo.shoe_id).first()
         if not shoe:
-            return redirect(url_for("home"))
+            return redirect(url_for("inventory.home"))
 
         shoe_id = shoe.id
         session.delete(photo)
         session.commit()
 
-    return redirect(url_for("shoe_detail", shoe_id=shoe_id))
+    return redirect(url_for("inventory.shoe_detail", shoe_id=shoe_id))
 
 
 if __name__ == "__main__":
+    from app import create_app
+
+    app = create_app()
     app.run(host="0.0.0.0", port=5000, debug=True)
 

@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="card hero">
+  <span class="section-kicker">Błąd {{ status }}</span>
+  <h1>{{ message }}</h1>
+  <p class="muted">Jeżeli problem się powtarza, sprawdź komunikaty w terminalu aplikacji.</p>
+  <a class="btn-primary" href="/">Powrót do magazynu</a>
+</section>
+{% endblock %}

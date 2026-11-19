@@ -321,6 +321,30 @@ td {
   color: var(--muted);
 }
 
+.notice {
+  padding: 14px 17px;
+  margin-bottom: 16px;
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  overflow-wrap: anywhere;
+}
+
+.notice-success {
+  background: var(--success-bg);
+  border-color: rgba(74, 222, 128, 0.35);
+  color: var(--success-text);
+}
+
+.notice-error {
+  background: var(--danger-bg);
+  border-color: rgba(255, 176, 190, 0.4);
+  color: var(--danger-text);
+}
+
+.notice ul { margin: 8px 0 0; padding-left: 22px; }
+.field-error { color: var(--danger-text); font-size: 12px; line-height: 1.4; }
+[aria-invalid="true"] { border-color: var(--danger-text); }
+
 .link-muted {
   text-decoration: none;
 }

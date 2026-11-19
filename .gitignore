@@ -18,6 +18,7 @@ ENV/
 .env
 .env.*
 !.env.example
+.session-key
 
 # Local database files
 *.db

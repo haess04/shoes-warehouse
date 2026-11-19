@@ -1,5 +1,43 @@
 # Magazynier — notatka techniczna
 
+## Aktualizacja: partia 2 — formularze i dostęp do plików
+
+- `app/validation.py` zawiera parsery tekstów, dat, kwot i identyfikatorów oraz
+  dekorator `form_handler()`. Błędy walidacji zwracają ponownie właściwy widok
+  z HTTP 422 i danymi z bieżącego żądania. Formularz nie jest zapisywany w sesji.
+- Dekorator sprawdza istnienie rodzica, obsługuje konflikty integralności bazy,
+  błędy plików i nieudane zapisy do bazy. Kontekst sesji wycofuje transakcje.
+- `form_value()` uzupełnia tylko pola formularza, który nie przeszedł walidacji.
+  Potwierdzenia poprawnych operacji korzystają z mechanizmu Flask flash.
+- `configure_session()` w `app/config.py` generuje trwały losowy klucz podpisu
+  w ignorowanym pliku `.session-key`. To fundament komunikatów, nie logowanie.
+- `app/media.py` sprawdza ścieżkę po rozwiązaniu dowiązań, rozszerzenie obrazu,
+  dozwolony katalog i (dla starego układu katalogów) powiązanie z rekordem buta.
+  Sam prefiks tekstowy ścieżki nie jest już kryterium bezpieczeństwa.
+- Potwierdzenia usunięcia używają atrybutu danych zamiast wklejania nazw do kodu
+  JavaScript. Dane z nazw zawierających cudzysłowy nie są wykonywane jako skrypt.
+- Synchronizacja zdjęć raportuje wynik i pozostaje niedestrukcyjna dla plików.
+- Testy regresji i bezpieczeństwa dodano w `tests/test_validation_media.py`.
+
+## Aktualizacja: partia 1 — konfiguracja i izolacja danych
+
+- Fabryka `create_app(config=None)` w `app/__init__.py` tworzy niezależne instancje
+  Flask. Nie istnieje już globalna instancja Flask dostępna jako `app.main.app`
+  przy imporcie; narzędzia integracyjne powinny korzystać z `app:create_app`.
+- `app/main.py` rejestruje widoki w Blueprint `inventory`; adresy HTTP nie zmieniły
+  się, natomiast nazwy endpointów mają prefiks `inventory.`.
+- `app/config.py` ustala katalog danych względem projektu, niezależnie od katalogu
+  terminala. `DATA_ROOT` określa wspólny katalog bazy i zdjęć.
+- `init_database(app)` tworzy silnik i fabrykę sesji dla konkretnej aplikacji.
+  Tabele i brakujące kolumny sprzedaży są inicjalizowane przy tworzeniu aplikacji,
+  nie podczas importowania modułów. Dotychczasowe dane nie są przenoszone.
+- `get_session()` korzysta z kontekstu aktywnej aplikacji i wycofuje transakcję
+  po wyjątku. Silniki dwóch instancji nie współdzielą konfiguracji.
+- Testy w `tests/test_foundation.py` używają tylko tymczasowych danych. Tryb
+  `TESTING` nie pozwala wybrać domyślnego katalogu rzeczywistego magazynu.
+- Logowanie, CSRF i backup pozostają do kolejnych partii. Poniższy opis ogólny
+  miejscami pokazuje wcześniejszą organizację kodu; aktualizacje opisano powyżej.
+
 ## 1. Architektura
 
 Magazynier jest lokalną aplikacją webową renderowaną po stronie serwera. Przeglądarka wysyła żądanie HTTP do Flask, backend odczytuje lub zapisuje dane przez SQLAlchemy, a Jinja2 generuje gotowy HTML.
