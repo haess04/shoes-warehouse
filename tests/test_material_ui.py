@@ -1,10 +1,13 @@
 from html.parser import HTMLParser
+from datetime import date
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import re
 import unittest
 
 from app import create_app
+from app.database import get_session
+from app.models import Pallet, Shoe
 
 
 class DetailsParser(HTMLParser):
@@ -25,6 +28,68 @@ class MaterialUITests(unittest.TestCase):
         self.app = create_app({"TESTING": True, "DATA_ROOT": self.temp.name})
         self.addCleanup(self.app.extensions["inventory_db"]["engine"].dispose)
         self.client = self.app.test_client()
+
+    def seed_product(self, sold=False):
+        with self.app.app_context(), get_session() as session:
+            pallet = Pallet(code="BOX_UI", delivery_date=date.today(), purchase_gross=100)
+            session.add(pallet)
+            session.flush()
+            shoe = Shoe(pallet_id=pallet.id, internal_id="UI001", name="UI test", status="sold" if sold else "available",
+                        sale_price=125 if sold else None, sale_date=date.today() if sold else None)
+            session.add(shoe)
+            session.commit()
+            return pallet.id, shoe.id
+
+    def panels(self, response):
+        parser = DetailsParser()
+        parser.feed(response.get_data(as_text=True))
+        return parser.panels
+
+    def test_pallet_editors_are_collapsed(self):
+        pid, _ = self.seed_product()
+        panels = self.panels(self.client.get(f"/pallets/{pid}"))
+        for panel in ("pallet-notes", "pallet-cost", "new-shoe"):
+            self.assertFalse(panels[panel])
+
+    def test_pallet_errors_open_only_matching_form(self):
+        pid, _ = self.seed_product()
+        cases = (("notes", {"notes": "x" * 10001}, "pallet-notes"),
+                 ("price", {"purchase_gross": "bad"}, "pallet-cost"),
+                 ("shoes", {"internal_id": "UI001", "name": "Duplicate"}, "new-shoe"))
+        for endpoint, data, expected in cases:
+            with self.subTest(endpoint=endpoint):
+                response = self.client.post(f"/pallets/{pid}/{endpoint}", data=data)
+                self.assertEqual(response.status_code, 422)
+                panels = self.panels(response)
+                self.assertTrue(panels[expected])
+                self.assertEqual(sum(panels.values()), 1)
+
+    def test_product_editors_closed_and_sale_visible(self):
+        _, sid = self.seed_product()
+        response = self.client.get(f"/shoes/{sid}")
+        panels = self.panels(response)
+        for panel in ("product-edit", "photo-settings", "product-more"):
+            self.assertFalse(panels[panel])
+        self.assertIn("Oznacz jako sprzedane", response.get_data(as_text=True))
+
+    def test_product_errors_open_only_matching_form(self):
+        _, sid = self.seed_product(sold=True)
+        cases = (("details", {"internal_id": "UI001", "name": ""}, "product-edit"),
+                 ("photos", {"file_path": "../private.jpg"}, "photo-settings"),
+                 ("sale", {"sale_price": "bad", "sale_date": "2026-01-01"}, "sale-edit"))
+        for endpoint, data, expected in cases:
+            with self.subTest(endpoint=endpoint):
+                response = self.client.post(f"/shoes/{sid}/{endpoint}", data=data)
+                self.assertEqual(response.status_code, 422)
+                panels = self.panels(response)
+                self.assertTrue(panels[expected])
+                self.assertEqual(sum(panels.values()), 1)
+
+    def test_shared_ui_script_is_local_and_available(self):
+        self.assertIn('src="/static/app-ui.js"', self.client.get("/").get_data(as_text=True))
+        response = self.client.get("/static/app-ui.js")
+        self.assertEqual(response.status_code, 200)
+        response.close()
 
     def test_new_pallet_form_closed_by_default(self):
         html = self.client.get("/").get_data(as_text=True)

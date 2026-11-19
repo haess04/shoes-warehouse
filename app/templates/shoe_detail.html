@@ -1,176 +1,94 @@
 {% extends "base.html" %}
+{% from "components.html" import icon %}
 
 {% block content %}
-<div class="top-back-link">
-  <a class="btn-primary btn-small" href="/pallets/{{ pallet.id }}">← Powrót do palety</a>
-</div>
+<nav class="breadcrumbs" aria-label="Ścieżka nawigacji"><a href="/">Magazyn</a><span aria-hidden="true">/</span><a href="/pallets/{{ pallet.id }}">{{ pallet.code }}</a><span aria-hidden="true">/</span><span aria-current="page">{{ shoe.internal_id }}</span></nav>
+<section class="page-heading product-heading">
+  <div><span class="section-kicker">Karta produktu · {{ shoe.internal_id }}</span><h1>{{ shoe.name }}</h1><p class="hero-subtitle">Paleta <a href="/pallets/{{ pallet.id }}">{{ pallet.code }}</a></p></div>
+  <span class="badge {{ shoe.status }}">{% if shoe.status == 'sold' %}{{ icon('check') }} Sprzedane{% else %}Dostępne w magazynie{% endif %}</span>
+</section>
 
-<section class="hero card">
-  <span class="section-kicker">Karta produktu</span>
-  <h1><span class="title-accent">{{ shoe.internal_id }}</span> — {{ shoe.name }}</h1>
-  <div class="detail-meta-grid">
-  <div class="detail-meta-item"><span>Paleta / box</span><strong><a href="/pallets/{{ pallet.id }}">{{ pallet.code }}</a></strong></div>
-  <div class="detail-meta-item"><span>Status</span><strong>
-    {% if shoe.status == "sold" %}
-      <span class="badge sold">sprzedane</span>
-    {% else %}
-      <span class="badge available">dostępne</span>
-    {% endif %}
-  </strong></div>
-  <div class="detail-meta-item"><span>Cena sprzedaży</span><strong>
-    {% if shoe.sale_price is not none %}
-      <strong>{{ "%.2f"|format(shoe.sale_price) }} zł</strong>
-    {% else %}
-      <span class="muted">brak</span>
-    {% endif %}
-  </strong></div>
-  <div class="detail-meta-item"><span>Data sprzedaży</span><strong>
-    {% if shoe.sale_date %}
-      <strong>{{ shoe.sale_date }}</strong>
-    {% else %}
-      <span class="muted">brak</span>
-    {% endif %}
-  </strong></div>
-  </div>
-  <div class="inline-form-wrap" style="margin-top: 8px;">
-    <form method="post" action="/shoes/{{ shoe.id }}/toggle-status" class="inline-form">
-      {% if shoe.status != "sold" %}
-        <input type="text" inputmode="decimal" name="sale_price" value="{{ form_value('sale_price') }}" placeholder="Cena sprzedaży (zł)" required />
-        <input type="{{ 'text' if g.form_errors and g.form_errors.get('sale_date') else 'date' }}" name="sale_date" value="{{ form_value('sale_date', default_sale_date) }}" required />
+<div class="product-layout">
+  <div class="product-main">
+    <section class="card gallery-section" aria-labelledby="product-photos-title">
+      <div class="section-heading section-heading-spread"><div class="section-heading"><span class="section-icon">{{ icon('image') }}</span><div><h2 id="product-photos-title">Zdjęcia produktu</h2><p class="section-description">Kliknij zdjęcie, aby je powiększyć.</p></div></div><span class="count-pill">Zdjęcia: {{ photos|length }}</span></div>
+      {% if photos %}
+      <div class="gallery-grid product-gallery">
+        {% for p in photos %}
+        <article class="photo-card">
+          <button type="button" class="gallery-image-button js-gallery-open" data-src="{{ url_for('inventory.media_file', rel_path=p.file_path) }}" data-alt="{{ shoe.internal_id }} — zdjęcie {{ loop.index }}" aria-label="Powiększ zdjęcie {{ loop.index }} produktu {{ shoe.internal_id }}">
+            <img src="{{ url_for('inventory.media_file', rel_path=p.file_path) }}" alt="{{ shoe.internal_id }} — zdjęcie {{ loop.index }}" class="gallery-image" {% if not loop.first %}loading="lazy"{% endif %} decoding="async" />
+            <span class="gallery-zoom-hint">{{ icon('search') }} Powiększ</span>
+          </button>
+          <div class="photo-meta"><span class="photo-path" title="{{ p.file_path }}">Zdjęcie {{ loop.index }}</span></div>
+        </article>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="dashboard-empty">{{ icon('image') }}<strong>Jeszcze bez zdjęć</strong><span>Umieść zdjęcia w folderze produktu i uruchom synchronizację.</span></div>
       {% endif %}
-      <button type="submit" class="btn-primary">
-        {% if shoe.status == "sold" %}Oznacz jako dostępne{% else %}Oznacz jako sprzedane{% endif %}
-      </button>
-    </form>
-    <form
-      method="post"
-      action="/shoes/{{ shoe.id }}/delete"
-      class="inline-form"
-      data-confirm="Usunąć but {{ shoe.internal_id }} ({{ shoe.name }})? Tej operacji nie da się cofnąć."
-    >
-      <button type="submit" class="btn-danger">Usuń buta</button>
-    </form>
+      <div class="gallery-tools"><form method="post" action="/shoes/{{ shoe.id }}/photos/sync"><button type="submit" class="btn-outlined">{{ icon('sync') }} Synchronizuj zdjęcia</button></form></div>
+      <details class="inline-disclosure" id="photo-settings" {% if g.form_errors and request.path.endswith('/photos') %}open{% endif %}>
+        <summary>{{ icon('more') }} Folder i ręczne dodawanie {{ icon('chevron', 'disclosure-chevron') }}</summary>
+        <p class="field-help">Folder zdjęć tego produktu:</p><p class="path-display">{{ expected_dir }}</p>
+        <form method="post" action="/shoes/{{ shoe.id }}/photos" class="form-grid">
+          <label class="full">Ścieżka istniejącego zdjęcia<input type="text" name="file_path" value="{{ form_value('file_path') }}" maxlength="1000" placeholder="np. PALETY/PALETA_A/A001/1.jpg" required /></label>
+          <div class="form-actions full"><button type="submit" class="btn-tonal">Dodaj ścieżkę</button></div>
+        </form>
+      </details>
+    </section>
+
+    <section class="card product-description" aria-labelledby="product-description-title">
+      <div class="section-heading"><span class="section-icon">{{ icon('box') }}</span><div><h2 id="product-description-title">Opis i uwagi</h2></div></div>
+      <p class="description-text">{{ shoe.description or 'Brak dodatkowego opisu. Możesz uzupełnić stan, rozmiar lub ważne uwagi w edycji produktu.' }}</p>
+    </section>
+    <details class="card form-disclosure" id="product-edit" {% if g.form_errors and request.path.endswith('/details') %}open{% endif %}>
+      <summary><span class="section-icon">{{ icon('edit') }}</span><span><strong>Edytuj produkt</strong><small>Identyfikator, nazwa i opis.</small></span>{{ icon('chevron', 'disclosure-chevron') }}</summary>
+      <form method="post" action="/shoes/{{ shoe.id }}/details" class="form-grid">
+        <label>ID buta<input type="text" name="internal_id" value="{{ form_value('internal_id', shoe.internal_id) }}" maxlength="100" required /><small>Folder docelowy zdjęć zależy od tego identyfikatora.</small></label>
+        <label>Nazwa<input type="text" name="name" value="{{ form_value('name', shoe.name) }}" maxlength="255" required /></label>
+        <label class="full">Opis<textarea name="description" rows="5" maxlength="10000" placeholder="Stan i dodatkowe informacje…">{{ form_value('description', shoe.description or '') }}</textarea></label>
+        <div class="form-actions full"><button type="submit" class="btn-primary">Zapisz dane buta</button><button type="button" class="btn-text" data-close-form="product-edit">Anuluj</button></div>
+      </form>
+    </details>
+    <details class="card form-disclosure product-more" id="product-more">
+      <summary><span class="section-icon">{{ icon('more') }}</span><span><strong>Więcej działań</strong><small>Informacje techniczne i usuwanie.</small></span>{{ icon('chevron', 'disclosure-chevron') }}</summary>
+      <div class="danger-zone"><p class="field-help">ID rekordu: {{ shoe.id }} · Utworzono: {{ shoe.created_at.strftime('%Y-%m-%d') if shoe.created_at else '—' }}</p><p>Usunięcie produktu z bazy jest nieodwracalne. Pliki zdjęć pozostaną na dysku.</p><form method="post" action="/shoes/{{ shoe.id }}/delete" data-confirm="Usunąć but {{ shoe.internal_id }} ({{ shoe.name }})? Tej operacji nie da się cofnąć."><button type="submit" class="btn-danger">{{ icon('delete') }} Usuń buta</button></form></div>
+    </details>
   </div>
 
-  {% if shoe.status == "sold" %}
-    <form method="post" action="/shoes/{{ shoe.id }}/sale" class="inline-form-wrap" style="margin-top: 10px; align-items: end;">
-      <label>
-        Cena sprzedaży (edycja)
-        <input
-          type="text"
-          inputmode="decimal"
-          name="sale_price"
-          value="{{ form_value('sale_price', '%.2f'|format(shoe.sale_price or 0)) }}"
-          required
-        />
-      </label>
-      <label>
-        Data sprzedaży (edycja)
-        <input type="{{ 'text' if g.form_errors and g.form_errors.get('sale_date') else 'date' }}" name="sale_date" value="{{ form_value('sale_date', shoe.sale_date) }}" required />
-      </label>
-      <button type="submit" class="btn-primary btn-small">Zapisz dane sprzedaży</button>
-    </form>
-  {% endif %}
-</section>
-
-<section class="card">
-  <div class="section-heading"><span class="section-icon">✎</span><div><span class="section-kicker">Edycja produktu</span><h2>Dane buta</h2></div></div>
-  <form method="post" action="/shoes/{{ shoe.id }}/details" class="form-grid">
-    <label>
-      ID buta
-      <input type="text" name="internal_id" value="{{ form_value('internal_id', shoe.internal_id) }}" maxlength="100" required />
-    </label>
-    <label>
-      Tytuł / nazwa
-      <input type="text" name="name" value="{{ form_value('name', shoe.name) }}" maxlength="255" required />
-    </label>
-    <label class="full">
-      Opis
-      <textarea name="description" rows="5" maxlength="10000" placeholder="opcjonalnie">{{ form_value('description', shoe.description or '') }}</textarea>
-    </label>
-    <button type="submit" class="btn-primary">Zapisz dane buta</button>
-  </form>
-
-  <h2 style="margin-top: 18px;">Opis</h2>
-  <p class="description-text">{{ shoe.description or "Brak opisu" }}</p>
-</section>
-
-<section class="card">
-  <div class="section-heading section-heading-spread">
-    <div class="section-heading"><span class="section-icon">▧</span><div><span class="section-kicker">Materiały</span><h2>Zdjęcia</h2></div></div>
-    <span class="count-pill">{{ photos|length }} zdjęć</span>
-  </div>
-  <p class="path-display">Folder docelowy: {{ expected_dir }}</p>
-
-  <div class="inline-form-wrap">
-    <form method="post" action="/shoes/{{ shoe.id }}/photos/sync" class="inline-form">
-      <button type="submit" class="btn-primary">Synchronizuj zdjęcia</button>
-    </form>
-    <form method="post" action="/shoes/{{ shoe.id }}/photos" class="inline-form">
-      <input type="text" name="file_path" value="{{ form_value('file_path') }}" maxlength="1000" placeholder="np. PALETY/PALETA_A/A001/1.jpg" required />
-      <button type="submit" class="btn-primary">Dodaj ścieżkę</button>
-    </form>
-  </div>
-
-  {% if photos %}
-    <div class="gallery-grid">
-      {% for p in photos %}
-      <article class="photo-card">
-        <button type="button" class="gallery-image-button js-gallery-open" data-src="/media/{{ p.file_path }}" data-alt="{{ shoe.internal_id }} — zdjęcie {{ loop.index }}">
-          <img src="/media/{{ p.file_path }}" alt="{{ shoe.internal_id }}" class="gallery-image" />
-          <span class="gallery-zoom-hint">⌕ Powiększ</span>
-        </button>
-        <div class="photo-meta">
-          <span class="photo-path">{{ p.file_path }}</span>
-        </div>
-      </article>
-      {% endfor %}
-    </div>
-  {% else %}
-    <p class="muted">Brak zdjęć dla tego buta.</p>
-  {% endif %}
-</section>
+  <aside class="product-side" aria-label="Sprzedaż i działania produktu">
+    <section class="card sale-panel" aria-labelledby="sale-title">
+      <div class="section-heading"><span class="section-icon">{{ icon('wallet') }}</span><div><h2 id="sale-title">Sprzedaż</h2></div></div>
+      {% if shoe.status == 'sold' %}
+      <span class="sale-label">Zapisana cena sprzedaży</span><strong class="sale-amount">{{ '%.2f'|format(shoe.sale_price or 0) }} <small>zł</small></strong>
+      <p class="sale-date">Data sprzedaży <strong>{{ shoe.sale_date or '—' }}</strong></p>
+      <details class="inline-disclosure" id="sale-edit" {% if g.form_errors and request.path.endswith('/sale') %}open{% endif %}>
+        <summary>{{ icon('edit') }} Edytuj sprzedaż {{ icon('chevron', 'disclosure-chevron') }}</summary>
+        <form method="post" action="/shoes/{{ shoe.id }}/sale" class="stack-form">
+          <label>Cena sprzedaży (zł)<input type="text" inputmode="decimal" name="sale_price" value="{{ form_value('sale_price', '%.2f'|format(shoe.sale_price or 0)) }}" required /></label>
+          <label>Data sprzedaży<input type="{{ 'text' if g.form_errors and g.form_errors.get('sale_date') else 'date' }}" name="sale_date" value="{{ form_value('sale_date', shoe.sale_date) }}" required /></label>
+          <button type="submit" class="btn-primary">Zapisz dane sprzedaży</button>
+        </form>
+      </details>
+      <form method="post" action="/shoes/{{ shoe.id }}/toggle-status" class="restore-sale-form" data-confirm="Przywrócić dostępność produktu {{ shoe.internal_id }}? Dotychczasowa cena i data sprzedaży zostaną usunięte."><button type="submit" class="btn-outlined">Przywróć dostępność</button></form>
+      <p class="field-help">Przywrócenie dostępności usuwa dane sprzedaży tej pary.</p>
+      {% else %}
+      <p class="section-description">Wpisz cenę, sprawdź datę i zapisz sprzedaż.</p>
+      <form method="post" action="/shoes/{{ shoe.id }}/toggle-status" class="stack-form">
+        <label>Cena sprzedaży (zł)<input type="text" inputmode="decimal" name="sale_price" value="{{ form_value('sale_price') }}" placeholder="np. 149,00" required /></label>
+        <label>Data sprzedaży<input type="{{ 'text' if g.form_errors and g.form_errors.get('sale_date') else 'date' }}" name="sale_date" value="{{ form_value('sale_date', default_sale_date) }}" required /></label>
+        <button type="submit" class="btn-primary">{{ icon('check') }} Oznacz jako sprzedane</button>
+      </form>
+      {% endif %}
+    </section>
+    <a class="btn-text back-to-pallet" href="/pallets/{{ pallet.id }}">{{ icon('back') }} Wróć do palety</a>
+  </aside>
+</div>
 
 <div class="image-lightbox" id="image-lightbox" aria-hidden="true" role="dialog" aria-modal="true" aria-label="Podgląd zdjęcia">
-  <button type="button" class="image-lightbox-close" aria-label="Zamknij podgląd">×</button>
-  <img src="" alt="" class="image-lightbox-image" />
+  <button type="button" class="image-lightbox-close" aria-label="Zamknij podgląd">{{ icon('close') }}</button>
+  <img alt="" class="image-lightbox-image" />
   <p class="image-lightbox-caption"></p>
 </div>
-
-<script>
-  const lightbox = document.getElementById('image-lightbox');
-  const lightboxImage = lightbox.querySelector('.image-lightbox-image');
-  const lightboxCaption = lightbox.querySelector('.image-lightbox-caption');
-  const closeButton = lightbox.querySelector('.image-lightbox-close');
-
-  const closeLightbox = () => {
-    lightbox.classList.remove('is-open');
-    lightbox.setAttribute('aria-hidden', 'true');
-    document.body.classList.remove('lightbox-open');
-    lightboxImage.src = '';
-  };
-
-  document.querySelectorAll('.js-gallery-open').forEach((button) => {
-    button.addEventListener('click', () => {
-      lightboxImage.src = button.dataset.src;
-      lightboxImage.alt = button.dataset.alt;
-      lightboxCaption.textContent = button.dataset.alt;
-      lightbox.classList.add('is-open');
-      lightbox.setAttribute('aria-hidden', 'false');
-      document.body.classList.add('lightbox-open');
-      closeButton.focus();
-    });
-  });
-
-  closeButton.addEventListener('click', closeLightbox);
-  lightbox.addEventListener('click', (event) => {
-    if (event.target === lightbox) closeLightbox();
-  });
-  document.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape' && lightbox.classList.contains('is-open')) closeLightbox();
-  });
-</script>
-
-<p><a class="link-muted" href="/pallets/{{ pallet.id }}">← Powrót do listy butów</a></p>
 {% endblock %}
-

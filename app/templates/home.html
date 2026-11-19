@@ -336,38 +336,5 @@
   </div>
 </section>
 
-<script>
-  document.querySelectorAll('[data-open-form]').forEach((trigger) => {
-    trigger.addEventListener('click', (event) => {
-      const panel = document.getElementById(trigger.dataset.openForm);
-      if (!panel) return;
-      event.preventDefault();
-      panel.open = true;
-      panel.scrollIntoView({ block: 'nearest' });
-      panel.querySelector('input')?.focus({ preventScroll: true });
-    });
-  });
-  document.querySelectorAll('[data-close-form]').forEach((trigger) => {
-    trigger.addEventListener('click', () => {
-      const panel = document.getElementById(trigger.dataset.closeForm);
-      panel.open = false;
-      panel.querySelector('summary').focus();
-    });
-  });
-  document.querySelectorAll('.clickable-row').forEach((row) => {
-    const href = row.dataset.href;
-    row.addEventListener('click', (event) => {
-      if (event.target.closest('a, button, form, input, textarea')) return;
-      window.location.href = href;
-    });
-    row.addEventListener('keydown', (event) => {
-      if (event.target !== row) return;
-      if (event.key === 'Enter' || event.key === ' ') {
-        event.preventDefault();
-        window.location.href = href;
-      }
-    });
-  });
-</script>
 {% endblock %}
 

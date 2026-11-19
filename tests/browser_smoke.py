@@ -46,10 +46,14 @@ class BrowserSmokeTests(unittest.TestCase):
                         status="sold", sale_price=125.50, sale_date=date.today())
             session.add(shoe)
             session.flush()
+            available = Shoe(pallet_id=pallet.id, internal_id="A002", name="Dostępny produkt demonstracyjny")
+            session.add(available)
+            session.flush()
             session.add(ShoePhoto(shoe_id=shoe.id, file_path="PALETY/BOX_A/A001/1.jpg"))
             session.add(Pallet(code="BOX_BARDZO_DLUGI_IDENTYFIKATOR_TESTOWY_123456789", delivery_date=date.today(), purchase_gross=999.99))
             session.commit()
             cls.pid, cls.sid = pallet.id, shoe.id
+            cls.available_sid = available.id
         cls.server = make_server("127.0.0.1", 0, cls.app, request_handler=QuietHandler)
         cls.thread = Thread(target=cls.server.serve_forever, daemon=True)
         cls.thread.start()
@@ -116,6 +120,85 @@ class BrowserSmokeTests(unittest.TestCase):
         self.assertEqual(self.page.url, self.url + "/")
         self.assertTrue(button.is_visible())
 
+    def test_pallet_new_product_form_and_duplicate_error(self):
+        self.page.goto(f"{self.url}/pallets/{self.pid}")
+        self.assertFalse(self.page.locator("#new-shoe").evaluate("el => el.open"))
+        self.page.get_by_role("link", name="Dodaj buta", exact=True).click()
+        self.assertEqual(self.page.evaluate("document.activeElement.name"), "internal_id")
+        self.page.locator('[name="internal_id"]').fill("A001")
+        self.page.locator('[name="name"]').fill("Nie zgub tej nazwy")
+        self.page.get_by_role("button", name="Dodaj buta", exact=True).click()
+        self.page.locator("#form-errors").wait_for()
+        self.assertTrue(self.page.locator("#new-shoe").evaluate("el => el.open"))
+        self.assertEqual(self.page.locator('[name="name"]').input_value(), "Nie zgub tej nazwy")
+        self.assertFalse(self.page.locator("#pallet-notes").evaluate("el => el.open"))
+        self.assertEqual(self.errors, [])
+
+    def test_native_product_form_works_without_javascript(self):
+        page = self.browser.new_page(java_script_enabled=False)
+        self.addCleanup(page.close)
+        page.goto(f"{self.url}/pallets/{self.pid}")
+        page.locator("#new-shoe summary").click()
+        page.locator('[name="internal_id"]').fill("A001")
+        page.locator('[name="name"]').fill("Dane bez JavaScriptu")
+        page.get_by_role("button", name="Dodaj buta", exact=True).click()
+        page.locator("#form-errors").wait_for()
+        self.assertTrue(page.locator('[name="name"]').is_visible())
+        self.assertEqual(page.locator('[name="name"]').input_value(), "Dane bez JavaScriptu")
+
+    def test_pallet_product_filter(self):
+        self.page.goto(f"{self.url}/pallets/{self.pid}")
+        self.page.locator("#pallet-status").select_option("available")
+        self.page.get_by_role("button", name="Szukaj", exact=True).click()
+        self.page.wait_for_url("**/pallets/*?*")
+        self.assertEqual(self.page.locator(".product-list tbody tr").count(), 1)
+        self.assertIn("A002", self.page.locator(".product-list").inner_text())
+
+    def test_sale_editor_error_stays_open(self):
+        self.page.goto(f"{self.url}/shoes/{self.sid}")
+        self.page.locator("#sale-edit summary").click()
+        self.page.locator('#sale-edit [name="sale_price"]').fill("99,999")
+        self.page.get_by_role("button", name="Zapisz dane sprzedaży", exact=True).click()
+        self.page.locator("#form-errors").wait_for()
+        self.assertTrue(self.page.locator("#sale-edit").evaluate("el => el.open"))
+        self.assertFalse(self.page.locator("#product-edit").evaluate("el => el.open"))
+        self.assertEqual(self.page.locator('#sale-edit [name="sale_price"]').input_value(), "99,999")
+        self.assertIn("125.50", self.page.locator(".sale-amount").inner_text())
+        self.assertEqual(self.errors, [])
+
+    def test_available_sale_form_on_mobile(self):
+        self.page.set_viewport_size({"width": 390, "height": 900})
+        self.page.goto(f"{self.url}/shoes/{self.available_sid}")
+        self.page.locator('.sale-panel [name="sale_price"]').fill("abc")
+        self.page.get_by_role("button", name="Oznacz jako sprzedane", exact=True).click()
+        self.page.locator("#form-errors").wait_for()
+        self.assertEqual(self.page.locator('.sale-panel [name="sale_price"]').input_value(), "abc")
+        self.assertFalse(self.page.locator("#product-edit").evaluate("el => el.open"))
+        self.assertEqual(self.errors, [])
+
+    def test_lightbox_keyboard_and_focus_restoration(self):
+        self.page.goto(f"{self.url}/shoes/{self.sid}")
+        self.page.locator(".js-gallery-open").first.click()
+        self.assertEqual(self.page.locator("#image-lightbox").get_attribute("aria-hidden"), "false")
+        self.page.keyboard.press("Tab")
+        self.assertTrue(self.page.evaluate("document.activeElement.classList.contains('image-lightbox-close')"),
+                        self.page.evaluate("({active: document.activeElement.outerHTML.slice(0, 300), visibility: getComputedStyle(document.querySelector('.image-lightbox-close')).visibility})"))
+        self.page.keyboard.press("Escape")
+        self.assertEqual(self.page.locator("#image-lightbox").get_attribute("aria-hidden"), "true")
+        self.assertTrue(self.page.evaluate("document.activeElement.classList.contains('js-gallery-open')"))
+        self.assertEqual(self.errors, [])
+
+    def test_mobile_delete_and_restore_require_confirmation(self):
+        self.page.set_viewport_size({"width": 390, "height": 900})
+        self.page.goto(f"{self.url}/shoes/{self.sid}")
+        self.page.on("dialog", lambda dialog: dialog.dismiss())
+        self.page.get_by_role("button", name="Przywróć dostępność", exact=True).click()
+        self.assertTrue(self.page.locator(".sale-amount").is_visible())
+        self.page.locator("#product-more summary").click()
+        self.page.get_by_role("button", name="Usuń buta", exact=True).click()
+        self.assertEqual(self.page.url, f"{self.url}/shoes/{self.sid}")
+        self.assertEqual(self.errors, [])
+
     def test_keyboard_skip_link_and_reduced_motion(self):
         self.page.emulate_media(reduced_motion="reduce")
         self.page.goto(self.url)
@@ -133,8 +216,9 @@ class BrowserSmokeTests(unittest.TestCase):
         output.mkdir(parents=True, exist_ok=True)
         for width in (1440, 390):
             self.page.set_viewport_size({"width": width, "height": 1000})
-            self.page.goto(self.url)
-            self.page.screenshot(path=str(output / f"home-{width}.png"), full_page=True)
+            for name, path in (("home", "/"), ("pallet", f"/pallets/{self.pid}"), ("shoe", f"/shoes/{self.sid}")):
+                self.page.goto(self.url + path)
+                self.page.screenshot(path=str(output / f"{name}-{width}.png"), full_page=True)
         self.assertEqual(external, [])
         self.assertEqual(self.errors, [])
 

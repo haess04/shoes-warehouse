@@ -39,8 +39,21 @@ CDN ani frameworka JavaScript. To własny lekki interfejs, nie oficjalna bibliot
 
 Na stronie głównej formularz nowej palety jest zwijany; po błędzie otwiera się
 automatycznie. Lista palet ma formę tabeli na komputerze i kart na telefonie.
-Dashboard zachowuje dotychczasowe statystyki. Pozostałe ekrany korzystają ze
-wspólnych nowych stylów; reorganizacja ich układu stanowi kolejne partie wizualne.
+Dashboard zachowuje dotychczasowe statystyki.
+
+Druga partia wizualna porządkuje paletę i kartę buta:
+
+- edycja notatek, kosztu oraz dodawanie produktu są zwijane; błędny formularz
+  otwiera się automatycznie, bez utraty danych;
+- lista produktów pokazuje miniaturę, ID, nazwę i status; na telefonie przechodzi
+  w kompaktowe wiersze kart, bez technicznego ID rekordu;
+- karta buta ma galerię i osobny panel sprzedaży; na telefonie sprzedaż jest
+  dostępna przed galerią, a usuwanie pozostaje w sekcji „Więcej działań”;
+- przywrócenie dostępności wymaga potwierdzenia utraty danych sprzedaży;
+- wspólny lokalny skrypt obsługuje zwijanie formularzy, nawigację po wierszach
+  i podgląd zdjęć z przywracaniem fokusu po zamknięciu;
+- formularze nadal działają jako natywne formularze HTML. Logika i schemat bazy
+  nie zmieniają się w partiach wizualnych.
 
 ### Opcjonalne testy przeglądarkowe
 

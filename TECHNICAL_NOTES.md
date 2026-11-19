@@ -1,5 +1,22 @@
 # Magazynier — notatka techniczna
 
+## Aktualizacja: Material 3 — druga partia wizualna
+
+- Przebudowano szablony palety i produktu bez zmian tras POST ani modeli bazy.
+  Natywne sekcje `details` ograniczają liczbę stale otwartych formularzy.
+- Przy HTTP 422 serwer otwiera tylko sekcję odpowiadającą ścieżce błędnego POST:
+  notatki, koszt, dodawanie produktu, edycja danych, edycja sprzedaży lub zdjęcia.
+- Lista butów usuwa techniczne ID z głównego widoku. Natywny lazy loading zdjęć
+  zastępuje dodatkowy kod IntersectionObserver. Ścieżki mediów buduje `url_for()`.
+- Galeria i sprzedaż mają osobne kolumny na komputerze; na małym ekranie panel
+  sprzedaży poprzedza galerię. Usuwanie produktu pozostaje dostępne w zwijanej
+  sekcji na obu typach urządzeń, z dotychczasowym potwierdzeniem.
+- `app/static/app-ui.js` współdzieli obsługę formularzy, klikalnych wierszy
+  i lightboxa. Zdarzenia klawiatury z linków i przycisków wewnątrz wiersza nie
+  uruchamiają dodatkowego przejścia. Zamknięcie lightboxa przywraca fokus miniaturze.
+- Testy rozszerzono o właściwy stan sekcji po błędach, mobilną sprzedaż,
+  filtrowanie, potwierdzenia usuwania i przywracania dostępności oraz fokus galerii.
+
 ## Aktualizacja: Material 3 — pierwsza partia wizualna
 
 - Arkusz `app/static/styles.css` zastąpiono spójnym zestawem tokenów kolorów,
