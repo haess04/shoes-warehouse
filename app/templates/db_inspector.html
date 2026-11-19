@@ -1,96 +1,41 @@
 {% extends "base.html" %}
-
+{% from "components.html" import icon %}
 {% block content %}
-<section class="hero card">
-  <span class="section-kicker">Narzędzia administracyjne</span>
-  <h1>Inspektor bazy danych</h1>
-  <p class="hero-subtitle">Podgląd zapisanych rekordów i szybka weryfikacja spójności danych.</p>
-  <div class="stats-grid">
-    <article class="stat-tile">
-      <span class="stat-label">Palety</span>
-      <strong class="stat-value">{{ stats.pallets_count }}</strong>
-    </article>
-    <article class="stat-tile">
-      <span class="stat-label">Buty</span>
-      <strong class="stat-value">{{ stats.shoes_count }}</strong>
-    </article>
-    <article class="stat-tile">
-      <span class="stat-label">Zdjęcia</span>
-      <strong class="stat-value">{{ stats.photos_count }}</strong>
-    </article>
-  </div>
+<nav class="breadcrumbs" aria-label="Ścieżka nawigacji"><a href="/">{{ icon('back') }} Magazyn</a><span aria-hidden="true">/</span><span aria-current="page">Inspektor</span></nav>
+<section class="page-heading"><div><span class="section-kicker">Narzędzia magazynu</span><h1>Inspektor danych</h1><p class="hero-subtitle">Rekordy i powiązania zapisane w bazie, bez możliwości edycji na tym ekranie.</p></div><span class="dashboard-chip">{{ icon('database') }} Tylko podgląd</span></section>
+<section class="inspector-overview" aria-label="Podsumowanie bazy">
+  <article class="stat-tile"><span class="stat-label">Palety i boxy</span><strong class="stat-value">{{ stats.pallets_count }}</strong></article>
+  <article class="stat-tile"><span class="stat-label">Pary butów</span><strong class="stat-value">{{ stats.shoes_count }}</strong></article>
+  <article class="stat-tile"><span class="stat-label">Powiązania zdjęć</span><strong class="stat-value">{{ stats.photos_count }}</strong></article>
+  <article class="stat-tile stat-tile-accent"><span class="stat-label">Zapisana sprzedaż</span><strong class="stat-value">{{ '%.2f'|format(stats.sold_total) }} zł</strong><small>{{ stats.sold_shoes_count }} sprzedanych par</small></article>
+</section>
+<div class="inspector-guide"><span class="section-icon">{{ icon('database') }}</span><p>To techniczny podgląd, nie audyt spójności ani kopia zapasowa. Kliknij identyfikator, aby przejść do rekordu. W szerokich tabelach możesz przewijać w bok.</p></div>
+<nav class="inspector-shortcuts" aria-label="Sekcje inspektora"><a class="btn-tonal" href="#inspector-pallets">Palety</a><a class="btn-text" href="#inspector-shoes">Buty</a><a class="btn-text" href="#inspector-photos">Zdjęcia</a></nav>
+
+<section class="card inspector-section" id="inspector-pallets" aria-labelledby="inspector-pallets-title">
+  <div class="section-heading section-heading-spread"><div class="section-heading"><span class="section-icon">{{ icon('box') }}</span><div><h2 id="inspector-pallets-title">Palety i boxy</h2><p class="section-description">Identyfikatory dostaw i koszty zakupu.</p></div></div><span class="count-pill">Łącznie: {{ pallets|length }}</span></div>
+  {% if pallets %}
+  <label class="inspector-search" for="filter-pallets"><span>Filtruj rekordy palet</span><input type="search" id="filter-pallets" data-filter-table="table-pallets" placeholder="Kod, data lub ID…" /></label>
+  <div class="table-wrap inspector-scroll" role="region" aria-labelledby="inspector-pallets-title" tabindex="0"><table id="table-pallets"><caption class="visually-hidden">Rekordy palet</caption><thead><tr><th scope="col">ID rekordu</th><th scope="col">Kod palety</th><th scope="col">Data dostawy</th><th scope="col">Koszt brutto</th></tr></thead><tbody>{% for p in pallets %}<tr><td><a href="/pallets/{{ p.id }}">#{{ p.id }}</a></td><td><a href="/pallets/{{ p.id }}">{{ p.code }}</a></td><td>{{ p.delivery_date }}</td><td class="numeric">{{ '%.2f'|format(p.purchase_gross) }} zł</td></tr>{% endfor %}</tbody></table></div>
+  <p class="filter-status field-help" data-filter-status="table-pallets" role="status" aria-live="polite">Widoczne rekordy: {{ pallets|length }} z {{ pallets|length }}</p>
+  {% else %}<div class="dashboard-empty">{{ icon('box') }}<strong>Brak zapisanych palet</strong><span>Nową dostawę dodasz na stronie magazynu.</span><a class="btn-tonal" href="/">Przejdź do magazynu</a></div>{% endif %}
 </section>
 
-<section class="card">
-  <h2>Palety</h2>
-  <div class="table-wrap">
-    <table>
-      <thead>
-        <tr><th>ID</th><th>Kod</th><th>Dostawa</th><th>Koszt brutto</th></tr>
-      </thead>
-      <tbody>
-      {% for p in pallets %}
-        <tr>
-          <td>{{ p.id }}</td>
-          <td>{{ p.code }}</td>
-          <td>{{ p.delivery_date }}</td>
-          <td>{{ "%.2f"|format(p.purchase_gross) }} zł</td>
-        </tr>
-      {% else %}
-        <tr><td colspan="4" class="muted">Brak danych</td></tr>
-      {% endfor %}
-      </tbody>
-    </table>
-  </div>
+<section class="card inspector-section" id="inspector-shoes" aria-labelledby="inspector-shoes-title">
+  <div class="section-heading section-heading-spread"><div class="section-heading"><span class="section-icon">{{ icon('warehouse') }}</span><div><h2 id="inspector-shoes-title">Buty</h2><p class="section-description">Produkty, przynależność do palety i dane sprzedaży.</p></div></div><span class="count-pill">Łącznie: {{ shoes|length }}</span></div>
+  {% if shoes %}
+  <label class="inspector-search" for="filter-shoes"><span>Filtruj rekordy butów</span><input type="search" id="filter-shoes" data-filter-table="table-shoes" placeholder="Nazwa, ID, status lub cena…" /></label>
+  <div class="table-wrap inspector-scroll" role="region" aria-labelledby="inspector-shoes-title" tabindex="0"><table id="table-shoes"><caption class="visually-hidden">Rekordy butów i sprzedaży</caption><thead><tr><th scope="col">ID rekordu</th><th scope="col">Paleta ID</th><th scope="col">ID buta</th><th scope="col">Nazwa</th><th scope="col">Status</th><th scope="col">Cena sprzedaży</th><th scope="col">Data sprzedaży</th></tr></thead><tbody>{% for s in shoes %}<tr><td><a href="/shoes/{{ s.id }}">#{{ s.id }}</a></td><td><a href="/pallets/{{ s.pallet_id }}">#{{ s.pallet_id }}</a></td><td><a href="/shoes/{{ s.id }}">{{ s.internal_id }}</a></td><td class="inspector-name">{{ s.name }}</td><td><span class="badge {{ s.status }}">{% if s.status == 'sold' %}Sprzedane{% else %}Dostępne{% endif %}</span><span class="visually-hidden">{{ s.status }}</span></td><td class="numeric">{% if s.sale_price is not none %}{{ '%.2f'|format(s.sale_price) }} zł{% else %}—{% endif %}</td><td>{{ s.sale_date or '—' }}</td></tr>{% endfor %}</tbody></table></div>
+  <p class="filter-status field-help" data-filter-status="table-shoes" role="status" aria-live="polite">Widoczne rekordy: {{ shoes|length }} z {{ shoes|length }}</p>
+  {% else %}<div class="dashboard-empty">{{ icon('warehouse') }}<strong>Brak zapisanych produktów</strong><span>Produkty dodasz wewnątrz wybranej palety.</span></div>{% endif %}
 </section>
 
-<section class="card">
-  <h2>Buty</h2>
-  <div class="table-wrap">
-    <table>
-      <thead>
-        <tr><th>ID</th><th>Paleta ID</th><th>ID buta</th><th>Nazwa</th><th>Status</th><th>Cena sprzedaży</th><th>Data sprzedaży</th></tr>
-      </thead>
-      <tbody>
-      {% for s in shoes %}
-        <tr>
-          <td>{{ s.id }}</td>
-          <td>{{ s.pallet_id }}</td>
-          <td>{{ s.internal_id }}</td>
-          <td>{{ s.name }}</td>
-          <td>{{ s.status }}</td>
-          <td>{% if s.sale_price is not none %}{{ "%.2f"|format(s.sale_price) }} zł{% else %}-{% endif %}</td>
-          <td>{% if s.sale_date %}{{ s.sale_date }}{% else %}-{% endif %}</td>
-        </tr>
-      {% else %}
-        <tr><td colspan="7" class="muted">Brak danych</td></tr>
-      {% endfor %}
-      </tbody>
-    </table>
-  </div>
-</section>
-
-<section class="card">
-  <h2>Zdjęcia</h2>
-  <div class="table-wrap">
-    <table>
-      <thead>
-        <tr><th>ID</th><th>Shoe ID</th><th>Ścieżka</th><th>Kolejność</th></tr>
-      </thead>
-      <tbody>
-      {% for ph in photos %}
-        <tr>
-          <td>{{ ph.id }}</td>
-          <td>{{ ph.shoe_id }}</td>
-          <td class="photo-path">{{ ph.file_path }}</td>
-          <td>{{ ph.sort_order }}</td>
-        </tr>
-      {% else %}
-        <tr><td colspan="4" class="muted">Brak danych</td></tr>
-      {% endfor %}
-      </tbody>
-    </table>
-  </div>
+<section class="card inspector-section" id="inspector-photos" aria-labelledby="inspector-photos-title">
+  <div class="section-heading section-heading-spread"><div class="section-heading"><span class="section-icon">{{ icon('image') }}</span><div><h2 id="inspector-photos-title">Zdjęcia</h2><p class="section-description">Ścieżki i kolejność zapisane w bazie. To nie jest kontrola istnienia plików.</p></div></div><span class="count-pill">Łącznie: {{ photos|length }}</span></div>
+  {% if photos %}
+  <label class="inspector-search" for="filter-photos"><span>Filtruj powiązania zdjęć</span><input type="search" id="filter-photos" data-filter-table="table-photos" placeholder="Ścieżka lub ID produktu…" /></label>
+  <div class="table-wrap inspector-scroll" role="region" aria-labelledby="inspector-photos-title" tabindex="0"><table id="table-photos"><caption class="visually-hidden">Powiązania zdjęć</caption><thead><tr><th scope="col">ID rekordu</th><th scope="col">But ID</th><th scope="col">Ścieżka pliku</th><th scope="col">Kolejność</th></tr></thead><tbody>{% for ph in photos %}<tr><td>#{{ ph.id }}</td><td><a href="/shoes/{{ ph.shoe_id }}">#{{ ph.shoe_id }}</a></td><td class="photo-path">{{ ph.file_path }}</td><td>{{ ph.sort_order }}</td></tr>{% endfor %}</tbody></table></div>
+  <p class="filter-status field-help" data-filter-status="table-photos" role="status" aria-live="polite">Widoczne rekordy: {{ photos|length }} z {{ photos|length }}</p>
+  {% else %}<div class="dashboard-empty">{{ icon('image') }}<strong>Brak powiązań zdjęć</strong><span>Synchronizacja na karcie produktu lub palety zapisze znalezione zdjęcia.</span></div>{% endif %}
 </section>
 {% endblock %}
-

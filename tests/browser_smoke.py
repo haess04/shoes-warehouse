@@ -38,6 +38,10 @@ class BrowserSmokeTests(unittest.TestCase):
         folder = cls.app.config["PHOTOS_ROOT"] / "BOX_A" / "A001"
         folder.mkdir(parents=True)
         Image.new("RGB", (640, 480), "#607d72").save(folder / "1.jpg")
+        Image.new("RGB", (480, 640), "#657b9a").save(folder / "2.jpg")
+        single = cls.app.config["PHOTOS_ROOT"] / "BOX_A" / "A002"
+        single.mkdir(parents=True)
+        Image.new("RGB", (320, 240), "#9a7865").save(single / "1.jpg")
         with cls.app.app_context(), get_session() as session:
             pallet = Pallet(code="BOX_A", delivery_date=date(2026, 1, 1), purchase_gross=100)
             session.add(pallet)
@@ -50,6 +54,8 @@ class BrowserSmokeTests(unittest.TestCase):
             session.add(available)
             session.flush()
             session.add(ShoePhoto(shoe_id=shoe.id, file_path="PALETY/BOX_A/A001/1.jpg"))
+            session.add(ShoePhoto(shoe_id=shoe.id, file_path="PALETY/BOX_A/A001/2.jpg", sort_order=1))
+            session.add(ShoePhoto(shoe_id=available.id, file_path="PALETY/BOX_A/A002/1.jpg"))
             session.add(Pallet(code="BOX_BARDZO_DLUGI_IDENTYFIKATOR_TESTOWY_123456789", delivery_date=date.today(), purchase_gross=999.99))
             session.commit()
             cls.pid, cls.sid = pallet.id, shoe.id
@@ -113,10 +119,13 @@ class BrowserSmokeTests(unittest.TestCase):
 
     def test_nested_delete_button_does_not_trigger_row_navigation(self):
         self.page.goto(self.url)
-        self.page.on("dialog", lambda dialog: dialog.dismiss())
         button = self.page.get_by_role("button", name="Usuń paletę BOX_A", exact=True)
         button.focus()
         button.press("Enter")
+        self.page.locator("#confirm-dialog").wait_for()
+        self.assertEqual(self.page.evaluate("document.activeElement.value"), "cancel")
+        self.page.keyboard.press("Escape")
+        self.page.wait_for_function("!document.getElementById('confirm-dialog').open")
         self.assertEqual(self.page.url, self.url + "/")
         self.assertTrue(button.is_visible())
 
@@ -181,9 +190,9 @@ class BrowserSmokeTests(unittest.TestCase):
         self.page.locator(".js-gallery-open").first.click()
         self.assertEqual(self.page.locator("#image-lightbox").get_attribute("aria-hidden"), "false")
         self.page.keyboard.press("Tab")
-        self.assertTrue(self.page.evaluate("document.activeElement.classList.contains('image-lightbox-close')"),
-                        self.page.evaluate("({active: document.activeElement.outerHTML.slice(0, 300), visibility: getComputedStyle(document.querySelector('.image-lightbox-close')).visibility})"))
+        self.assertTrue(self.page.evaluate("!!document.activeElement.closest('#image-lightbox')"))
         self.page.keyboard.press("Escape")
+        self.page.wait_for_function("document.getElementById('image-lightbox').getAttribute('aria-hidden') === 'true'")
         self.assertEqual(self.page.locator("#image-lightbox").get_attribute("aria-hidden"), "true")
         self.assertTrue(self.page.evaluate("document.activeElement.classList.contains('js-gallery-open')"))
         self.assertEqual(self.errors, [])
@@ -191,13 +200,118 @@ class BrowserSmokeTests(unittest.TestCase):
     def test_mobile_delete_and_restore_require_confirmation(self):
         self.page.set_viewport_size({"width": 390, "height": 900})
         self.page.goto(f"{self.url}/shoes/{self.sid}")
-        self.page.on("dialog", lambda dialog: dialog.dismiss())
         self.page.get_by_role("button", name="Przywróć dostępność", exact=True).click()
+        self.page.locator("#confirm-dialog").wait_for()
+        self.assertIn("cena i data", self.page.locator("#confirm-description").inner_text())
+        self.page.locator('#confirm-dialog [value="cancel"]').click()
         self.assertTrue(self.page.locator(".sale-amount").is_visible())
         self.page.locator("#product-more summary").click()
         self.page.get_by_role("button", name="Usuń buta", exact=True).click()
+        self.page.locator("#confirm-dialog").wait_for()
+        self.page.locator('#confirm-dialog [value="cancel"]').click()
         self.assertEqual(self.page.url, f"{self.url}/shoes/{self.sid}")
         self.assertEqual(self.errors, [])
+
+    def test_confirm_dialog_submits_once_only_after_acceptance(self):
+        with self.app.app_context(), get_session() as session:
+            pallet = Pallet(code="DELETE_DIALOG_TEST", delivery_date=date.today(), purchase_gross=1)
+            session.add(pallet)
+            session.commit()
+            pid = pallet.id
+        posts = []
+        self.page.on("request", lambda request: posts.append(request.url) if request.method == 'POST' and request.url.endswith(f'/pallets/{pid}/delete') else None)
+        self.page.goto(self.url)
+        trigger = self.page.get_by_role("button", name="Usuń paletę DELETE_DIALOG_TEST", exact=True)
+        trigger.click()
+        self.page.locator("#confirm-dialog").wait_for()
+        self.page.locator('#confirm-dialog [value="cancel"]').click()
+        self.assertEqual(posts, [])
+        trigger.click()
+        self.page.locator('#confirm-dialog [value="confirm"]').click()
+        self.page.wait_for_load_state("load")
+        self.page.wait_for_function("!document.getElementById('confirm-dialog').open")
+        self.assertEqual(len(posts), 1)
+        with self.app.app_context(), get_session() as session:
+            self.assertIsNone(session.get(Pallet, pid))
+
+    def test_gallery_navigation_buttons_keyboard_and_swipe(self):
+        self.page.goto(f"{self.url}/shoes/{self.sid}")
+        self.page.locator(".js-gallery-open").first.click()
+        self.assertEqual(self.page.locator(".lightbox-counter").inner_text(), "1 / 2")
+        self.page.get_by_role("button", name="Następne zdjęcie", exact=True).click()
+        self.assertEqual(self.page.locator(".lightbox-counter").inner_text(), "2 / 2")
+        self.page.keyboard.press("ArrowRight")
+        self.assertEqual(self.page.locator(".lightbox-counter").inner_text(), "1 / 2")
+        stage = self.page.locator(".lightbox-stage")
+        stage.dispatch_event("pointerdown", {"pointerType": "touch", "isPrimary": True, "pointerId": 1, "clientX": 250, "clientY": 300})
+        stage.dispatch_event("pointerup", {"pointerType": "touch", "isPrimary": True, "pointerId": 1, "clientX": 90, "clientY": 310})
+        self.assertEqual(self.page.locator(".lightbox-counter").inner_text(), "2 / 2")
+        self.page.keyboard.press("Escape")
+        self.page.wait_for_function("!document.getElementById('image-lightbox').open")
+        self.assertEqual(self.errors, [])
+
+    def test_gallery_single_image_disables_navigation(self):
+        self.page.goto(f"{self.url}/shoes/{self.available_sid}")
+        self.page.locator(".js-gallery-open").first.click()
+        self.assertTrue(self.page.get_by_role("button", name="Następne zdjęcie", exact=True).is_disabled())
+        self.assertTrue(self.page.get_by_role("button", name="Poprzednie zdjęcie", exact=True).is_disabled())
+        self.assertEqual(self.page.locator(".lightbox-counter").inner_text(), "1 / 1")
+
+    def test_gallery_load_error_and_retry(self):
+        self.page.route("**/media/PALETY/BOX_A/A001/2.jpg", lambda route: route.fulfill(status=404, body="missing"))
+        self.page.goto(f"{self.url}/shoes/{self.sid}")
+        self.page.locator(".js-gallery-open").nth(1).click()
+        self.page.get_by_role("button", name="Spróbuj ponownie", exact=True).wait_for()
+        self.assertIn("Nie udało się", self.page.locator(".lightbox-message").inner_text())
+        self.page.unroute("**/media/PALETY/BOX_A/A001/2.jpg")
+        self.page.get_by_role("button", name="Spróbuj ponownie", exact=True).click()
+        self.page.locator(".image-lightbox-image").wait_for(state="visible")
+        self.assertEqual(self.errors, [])
+
+    def test_inspector_filter_and_empty_result(self):
+        self.page.goto(self.url + "/db-inspector")
+        self.page.locator("#filter-shoes").fill("A002")
+        self.assertEqual(self.page.locator("#table-shoes tbody tr:visible").count(), 1)
+        self.page.locator("#filter-shoes").fill("no_matching_fixture")
+        self.assertEqual(self.page.locator("#table-shoes tbody tr:visible").count(), 0)
+        self.assertIn("Brak pasujących", self.page.locator('[data-filter-status="table-shoes"]').inner_text())
+        self.page.locator("#filter-shoes").fill("")
+        self.assertGreaterEqual(self.page.locator("#table-shoes tbody tr:visible").count(), 2)
+
+    def test_dialogs_fit_small_screens(self):
+        output = Path(os.environ.get("UI_SCREENSHOT_DIR", ".ui-artifacts"))
+        output.mkdir(parents=True, exist_ok=True)
+        for width in (320, 390, 768):
+            with self.subTest(width=width):
+                self.page.set_viewport_size({"width": width, "height": 700})
+                self.page.goto(self.url)
+                self.page.get_by_role("button", name="Usuń paletę BOX_A", exact=True).click()
+                dialog = self.page.locator("#confirm-dialog")
+                dialog.wait_for()
+                self.assertTrue(dialog.evaluate("el => el.matches(':modal')"))
+                box = dialog.bounding_box()
+                self.assertGreaterEqual(box['x'], 0)
+                self.assertLessEqual(box['x'] + box['width'], width + 1)
+                self.page.screenshot(path=str(output / f"confirmation-{width}.png"))
+                self.page.keyboard.press("Escape")
+                self.page.goto(f"{self.url}/shoes/{self.sid}")
+                self.page.locator(".js-gallery-open").first.click()
+                self.page.locator(".image-lightbox-image").wait_for(state="visible")
+                self.assertTrue(self.page.locator("#image-lightbox").evaluate("el => el.matches(':modal')"))
+                for selector in (".image-lightbox-close", ".image-lightbox-next", ".image-lightbox-prev"):
+                    box = self.page.locator(selector).bounding_box()
+                    self.assertGreaterEqual(box['x'], 0)
+                    self.assertLessEqual(box['y'] + box['height'], 701)
+                self.page.screenshot(path=str(output / f"gallery-{width}.png"))
+                self.page.keyboard.press("Escape")
+        self.assertEqual(self.errors, [])
+
+    def test_destructive_buttons_hidden_without_javascript(self):
+        page = self.browser.new_page(java_script_enabled=False)
+        self.addCleanup(page.close)
+        page.goto(self.url)
+        self.assertFalse(page.locator('form[data-confirm] button').first.is_visible())
+        self.assertIn("włączonego JavaScriptu", page.locator('noscript').inner_text())
 
     def test_keyboard_skip_link_and_reduced_motion(self):
         self.page.emulate_media(reduced_motion="reduce")
@@ -216,7 +330,7 @@ class BrowserSmokeTests(unittest.TestCase):
         output.mkdir(parents=True, exist_ok=True)
         for width in (1440, 390):
             self.page.set_viewport_size({"width": width, "height": 1000})
-            for name, path in (("home", "/"), ("pallet", f"/pallets/{self.pid}"), ("shoe", f"/shoes/{self.sid}")):
+            for name, path in (("home", "/"), ("pallet", f"/pallets/{self.pid}"), ("shoe", f"/shoes/{self.sid}"), ("inspector", "/db-inspector")):
                 self.page.goto(self.url + path)
                 self.page.screenshot(path=str(output / f"{name}-{width}.png"), full_page=True)
         self.assertEqual(external, [])

@@ -34,13 +34,16 @@
       {% endif %}
       {% block content %}{% endblock %}
     </main>
-    <script>
-      document.querySelectorAll('form[data-confirm]').forEach((form) => {
-        form.addEventListener('submit', (event) => {
-          if (!window.confirm(form.dataset.confirm)) event.preventDefault();
-        });
-      });
-    </script>
+    <dialog class="confirm-dialog" id="confirm-dialog" aria-labelledby="confirm-title" aria-describedby="confirm-description">
+      <span class="dialog-symbol">{{ icon('alert') }}</span>
+      <h2 id="confirm-title">Potwierdź operację</h2>
+      <p id="confirm-description"></p>
+      <form method="dialog" class="dialog-actions">
+        <button type="submit" class="btn-text" value="cancel" autofocus>Anuluj</button>
+        <button type="submit" class="btn-danger" value="confirm" id="confirm-action">Potwierdź</button>
+      </form>
+    </dialog>
+    <noscript><style>form[data-confirm] button[type="submit"], .inspector-search { display: none; }</style><div class="container"><p class="notice notice-error">Usuwanie i cofanie sprzedaży wymagają włączonego JavaScriptu, aby wyświetlić potwierdzenie. Pozostałe formularze działają bez niego.</p></div></noscript>
     {% if g.form_errors %}
     <script>
       // Only mark controls belonging to the submitted form; never inject HTML.

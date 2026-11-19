@@ -55,6 +55,25 @@ Druga partia wizualna porządkuje paletę i kartę buta:
 - formularze nadal działają jako natywne formularze HTML. Logika i schemat bazy
   nie zmieniają się w partiach wizualnych.
 
+Trzecia partia zamyka podstawowy redesign:
+
+- podgląd zdjęć działa jako natywny dialog: licznik, poprzednie/następne zdjęcie,
+  strzałki klawiatury, poziome przesunięcie palcem, Escape i powrót fokusu;
+- błąd wczytania obrazu pokazuje komunikat i możliwość ponowienia; dla jednego
+  zdjęcia przyciski przełączania są wyłączone;
+- usuwanie i cofanie sprzedaży mają dialog z domyślnym focusem na „Anuluj”;
+  anulowanie niczego nie wysyła, a akceptacja wysyła formularz tylko raz;
+- bez JavaScriptu przyciski operacji wymagających potwierdzenia są ukryte,
+  pozostałe formularze działają, a zdjęcia otwierają się przez zwykłe linki;
+- inspektor pokazuje podsumowania, odnośniki do rekordów, przewijane klawiaturą
+  tabele i filtry lokalne; filtry nie zmieniają rekordów ani statystyk;
+- strony błędów zawierają instrukcję powrotu i nie zachęcają do ponawiania zapisu
+  bez sprawdzenia aktualnego stanu.
+
+Dialog potwierdzenia nie zastępuje autoryzacji ani CSRF. Logowanie i backup
+pozostają kolejnymi partiami technicznymi. Interfejs zakłada współczesną przeglądarkę
+obsługującą natywne dialogi HTML (aktualny Chrome, Edge, Firefox lub Safari).
+
 ### Opcjonalne testy przeglądarkowe
 
 Podstawowy zestaw testów pozostaje dostępny bez dodatkowych zależności:

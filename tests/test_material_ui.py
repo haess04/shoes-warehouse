@@ -91,6 +91,41 @@ class MaterialUITests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         response.close()
 
+    def test_confirmation_dialog_has_explicit_cancel_and_confirm(self):
+        html = self.client.get("/").get_data(as_text=True)
+        self.assertIn('<dialog class="confirm-dialog"', html)
+        self.assertIn('aria-describedby="confirm-description"', html)
+        self.assertIn('value="cancel" autofocus', html)
+        self.assertIn('value="confirm"', html)
+        self.assertNotIn('window.confirm', html)
+
+    def test_inspector_empty_states_and_read_only_notice(self):
+        html = self.client.get("/db-inspector").get_data(as_text=True)
+        for message in ("Tylko podgląd", "Brak zapisanych palet", "Brak zapisanych produktów", "Brak powiązań zdjęć"):
+            self.assertIn(message, html)
+        self.assertNotIn('method="post"', html)
+
+    def test_inspector_links_records_and_exposes_filter(self):
+        pid, sid = self.seed_product()
+        html = self.client.get("/db-inspector").get_data(as_text=True)
+        self.assertIn(f'href="/pallets/{pid}"', html)
+        self.assertIn(f'href="/shoes/{sid}"', html)
+        self.assertIn('data-filter-table="table-shoes"', html)
+
+    def test_gallery_dialog_has_navigation_and_error_state(self):
+        _, sid = self.seed_product()
+        html = self.client.get(f"/shoes/{sid}").get_data(as_text=True)
+        self.assertIn('<dialog class="image-lightbox"', html)
+        for label in ("Poprzednie zdjęcie", "Następne zdjęcie", "Zamknij podgląd", "Spróbuj ponownie"):
+            self.assertIn(label, html)
+
+    def test_missing_page_has_safe_recovery_link(self):
+        response = self.client.get("/missing-page-test")
+        self.assertEqual(response.status_code, 404)
+        html = response.get_data(as_text=True)
+        self.assertIn("Powrót do magazynu", html)
+        self.assertNotIn("Traceback", html)
+
     def test_new_pallet_form_closed_by_default(self):
         html = self.client.get("/").get_data(as_text=True)
         parser = DetailsParser()

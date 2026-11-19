@@ -146,6 +146,7 @@
             action="/pallets/{{ p.id }}/delete"
             class="inline-form"
             data-confirm="Usunąć paletę {{ p.code }}? Operacja usunie też wszystkie buty i zdjęcia z bazy."
+            data-confirm-action="Usuń paletę"
           >
             <button type="submit" class="btn-icon btn-danger-quiet" aria-label="Usuń paletę {{ p.code }}" title="Usuń paletę">{{ icon('delete') }}</button>
           </form>

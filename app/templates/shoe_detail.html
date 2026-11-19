@@ -16,10 +16,10 @@
       <div class="gallery-grid product-gallery">
         {% for p in photos %}
         <article class="photo-card">
-          <button type="button" class="gallery-image-button js-gallery-open" data-src="{{ url_for('inventory.media_file', rel_path=p.file_path) }}" data-alt="{{ shoe.internal_id }} — zdjęcie {{ loop.index }}" aria-label="Powiększ zdjęcie {{ loop.index }} produktu {{ shoe.internal_id }}">
+          <a href="{{ url_for('inventory.media_file', rel_path=p.file_path) }}" class="gallery-image-button js-gallery-open" data-src="{{ url_for('inventory.media_file', rel_path=p.file_path) }}" data-alt="{{ shoe.internal_id }} — zdjęcie {{ loop.index }}" aria-label="Powiększ zdjęcie {{ loop.index }} produktu {{ shoe.internal_id }}" aria-haspopup="dialog">
             <img src="{{ url_for('inventory.media_file', rel_path=p.file_path) }}" alt="{{ shoe.internal_id }} — zdjęcie {{ loop.index }}" class="gallery-image" {% if not loop.first %}loading="lazy"{% endif %} decoding="async" />
             <span class="gallery-zoom-hint">{{ icon('search') }} Powiększ</span>
-          </button>
+          </a>
           <div class="photo-meta"><span class="photo-path" title="{{ p.file_path }}">Zdjęcie {{ loop.index }}</span></div>
         </article>
         {% endfor %}
@@ -71,7 +71,7 @@
           <button type="submit" class="btn-primary">Zapisz dane sprzedaży</button>
         </form>
       </details>
-      <form method="post" action="/shoes/{{ shoe.id }}/toggle-status" class="restore-sale-form" data-confirm="Przywrócić dostępność produktu {{ shoe.internal_id }}? Dotychczasowa cena i data sprzedaży zostaną usunięte."><button type="submit" class="btn-outlined">Przywróć dostępność</button></form>
+      <form method="post" action="/shoes/{{ shoe.id }}/toggle-status" class="restore-sale-form" data-confirm="Przywrócić dostępność produktu {{ shoe.internal_id }}? Dotychczasowa cena i data sprzedaży zostaną usunięte." data-confirm-action="Przywróć dostępność"><button type="submit" class="btn-outlined">Przywróć dostępność</button></form>
       <p class="field-help">Przywrócenie dostępności usuwa dane sprzedaży tej pary.</p>
       {% else %}
       <p class="section-description">Wpisz cenę, sprawdź datę i zapisz sprzedaż.</p>
@@ -86,9 +86,12 @@
   </aside>
 </div>
 
-<div class="image-lightbox" id="image-lightbox" aria-hidden="true" role="dialog" aria-modal="true" aria-label="Podgląd zdjęcia">
-  <button type="button" class="image-lightbox-close" aria-label="Zamknij podgląd">{{ icon('close') }}</button>
-  <img alt="" class="image-lightbox-image" />
-  <p class="image-lightbox-caption"></p>
-</div>
+<dialog class="image-lightbox" id="image-lightbox" aria-hidden="true" aria-label="Podgląd zdjęć produktu">
+  <div class="lightbox-toolbar"><span class="lightbox-counter" aria-live="polite"></span><button type="button" class="image-lightbox-close btn-icon" aria-label="Zamknij podgląd">{{ icon('close') }}</button></div>
+  <div class="lightbox-stage">
+    <img alt="" class="image-lightbox-image" />
+    <div class="lightbox-feedback" role="status" aria-live="polite"><span class="lightbox-message"></span><button type="button" class="btn-tonal lightbox-retry" hidden>Spróbuj ponownie</button></div>
+  </div>
+  <div class="lightbox-footer"><p class="image-lightbox-caption"></p><div class="lightbox-navigation"><button type="button" class="btn-outlined image-lightbox-prev" aria-label="Poprzednie zdjęcie">{{ icon('back') }}</button><span class="lightbox-help">Strzałki na klawiaturze lub przesunięcie palcem</span><button type="button" class="btn-outlined image-lightbox-next" aria-label="Następne zdjęcie">{{ icon('chevron') }}</button></div></div>
+</dialog>
 {% endblock %}

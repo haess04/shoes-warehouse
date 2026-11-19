@@ -1,9 +1,11 @@
 {% extends "base.html" %}
+{% from "components.html" import icon %}
 {% block content %}
-<section class="card hero">
-  <span class="section-kicker">Błąd {{ status }}</span>
+<section class="card error-state">
+  <span class="error-state-icon">{{ icon('search' if status == 404 else 'alert') }}</span>
+  <span class="section-kicker">{% if status == 404 %}Nie znaleziono · 404{% else %}Operacja nieudana · {{ status }}{% endif %}</span>
   <h1>{{ message }}</h1>
-  <p class="muted">Jeżeli problem się powtarza, sprawdź komunikaty w terminalu aplikacji.</p>
-  <a class="btn-primary" href="/">Powrót do magazynu</a>
+  <p class="muted">{% if status == 404 %}Adres może być nieaktualny, a rekord lub plik mógł zostać usunięty. Wróć do magazynu i wybierz produkt ponownie.{% else %}Nie ponawiaj zapisu w ciemno. Wróć do magazynu i sprawdź aktualne dane. Szczegóły błędu są dostępne w terminalu aplikacji.{% endif %}</p>
+  <a class="btn-primary" href="/">{{ icon('back') }} Powrót do magazynu</a>
 </section>
 {% endblock %}

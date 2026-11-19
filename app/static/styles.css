@@ -42,6 +42,7 @@
 }
 
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 html { scroll-padding-top: 104px; }
 body {
   margin: 0;
@@ -356,12 +357,49 @@ td a:hover { color: var(--primary); }
 .gallery-zoom-hint { position: absolute; right: 12px; bottom: 12px; padding: 8px 12px; border-radius: 20px; background: var(--surface-container-high); color: var(--on-surface); font-size: 12px; }
 .photo-meta { padding: 12px 16px; }
 body.lightbox-open { overflow: hidden; }
-.image-lightbox { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; padding: 76px 24px 56px; background: rgb(0 0 0 / 92%); opacity: 0; visibility: hidden; transition: opacity var(--motion-duration) var(--motion-easing); }
-.image-lightbox.is-open { opacity: 1; visibility: visible; }
-.image-lightbox-image { display: block; max-width: min(94vw, 1500px); max-height: calc(100dvh - 150px); object-fit: contain; border-radius: 16px; }
-.image-lightbox-close { position: absolute; right: 20px; top: 16px; width: 48px; height: 48px; padding: 0; border-radius: 50%; background: var(--surface-container-high); color: var(--on-surface); font-size: 30px; font-weight: 400; }
+.image-lightbox { position: fixed; inset: 0; width: 100%; height: 100dvh; max-width: none; max-height: none; margin: 0; padding: 16px 24px; border: 0; background: #101514; color: var(--on-surface); }
+.image-lightbox:not([open]) { display: none; }
+.image-lightbox[open] { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; gap: 12px; }
+.image-lightbox::backdrop { background: #101514; }
+.lightbox-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.lightbox-counter { font-size: 14px; font-variant-numeric: tabular-nums; color: var(--on-surface-variant); }
+.lightbox-stage { display: grid; place-items: center; min-width: 0; min-height: 0; overflow: hidden; touch-action: pan-y pinch-zoom; }
+.image-lightbox-image { display: block; max-width: 100%; max-height: 100%; width: auto; height: auto; object-fit: contain; border-radius: 16px; user-select: none; }
+.image-lightbox-close { position: static; background: var(--surface-container-high); color: var(--on-surface); }
 .image-lightbox-close:hover { background: var(--surface-container-highest); color: var(--on-surface); }
-.image-lightbox-caption { position: absolute; bottom: 16px; left: 20px; right: 20px; margin: 0; color: var(--on-surface); text-align: center; font-size: 13px; }
+.lightbox-feedback { display: grid; justify-items: center; gap: 20px; padding: 24px; color: var(--on-surface-variant); text-align: center; }
+.lightbox-footer { display: grid; justify-items: center; gap: 12px; padding-bottom: env(safe-area-inset-bottom, 0px); }
+.image-lightbox-caption { position: static; margin: 0; max-width: 90%; color: var(--on-surface); text-align: center; font-size: 13px; overflow-wrap: anywhere; }
+.lightbox-navigation { display: flex; align-items: center; justify-content: center; gap: 20px; }
+.lightbox-help { color: var(--on-surface-variant); font-size: 12px; }
+.image-lightbox-prev, .image-lightbox-next { padding: 12px; width: 48px; height: 48px; }
+.confirm-dialog { width: min(480px, calc(100vw - 32px)); max-height: calc(100dvh - 48px); padding: 28px; border: 0; border-radius: 28px; background: var(--surface-container-high); color: var(--on-surface); overflow-y: auto; box-shadow: 0 16px 48px rgb(0 0 0 / 32%); }
+.confirm-dialog::backdrop { background: rgb(0 0 0 / 65%); }
+.dialog-symbol { display: grid; place-items: center; width: 48px; height: 48px; border-radius: 16px; background: var(--error-container); color: var(--error); margin-bottom: 20px; }
+.confirm-dialog h2 { font-size: 24px; margin-bottom: 16px; }
+.confirm-dialog p { color: var(--on-surface-variant); font-size: 14px; overflow-wrap: anywhere; }
+.dialog-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; margin-top: 24px; }
+.inspector-overview { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin-bottom: 24px; }
+.inspector-overview .stat-value { display: block; font-size: 28px; }
+.inspector-overview .stat-tile { background: var(--surface-container); }
+.inspector-overview .stat-tile-accent { background: var(--primary-container); }
+.inspector-guide { display: flex; gap: 16px; align-items: center; margin-bottom: 24px; }
+.inspector-guide p { margin: 0; font-size: 14px; color: var(--on-surface-variant); }
+.inspector-shortcuts { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 24px; }
+.inspector-section { scroll-margin-top: 100px; }
+.inspector-search { display: grid; gap: 8px; max-width: 440px; margin-bottom: 20px; font-size: 13px; color: var(--on-surface-variant); }
+.inspector-search input { width: 100%; }
+.inspector-scroll { border: 1px solid var(--outline-variant); }
+.inspector-scroll td { vertical-align: top; }
+.inspector-scroll table { min-width: 540px; }
+.inspector-name { min-width: 200px; max-width: 380px; overflow-wrap: anywhere; }
+.inspector-scroll .photo-path { min-width: 240px; max-width: 480px; }
+.filter-status { min-height: 24px; }
+.error-state { max-width: 680px; margin: 48px auto; text-align: center; padding: 40px 32px; }
+.error-state h1 { font-size: 28px; letter-spacing: -0.5px; }
+.error-state .muted { font-size: 15px; line-height: 1.7; margin: 20px 0 28px; }
+.error-state-icon { display: grid; place-items: center; margin: 0 auto 24px; width: 72px; height: 72px; background: var(--secondary-container); color: var(--on-secondary-container); border-radius: 24px; }
+.error-state-icon .icon { width: 32px; height: 32px; }
 
 /* Responsive surfaces: keep comparison tables on desktop, compact cards on phones. */
 @media (max-width: 1050px) {
@@ -377,6 +415,13 @@ body.lightbox-open { overflow: hidden; }
   .top-sale-date { display: block; color: var(--on-surface-variant); font-size: 12px; }
 }
 @media (max-width: 760px) {
+  .inspector-overview { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .inspector-overview .stat-tile { padding: 16px; }
+  .inspector-overview .stat-value { font-size: 24px; }
+  .inspector-section .section-heading-spread { flex-wrap: wrap; }
+  .lightbox-help { display: none; }
+  .image-lightbox { padding: 12px; }
+  .confirm-dialog { padding: 24px; }
   .breadcrumbs { margin-bottom: 16px; }
   .pallet-overview { gap: 12px; }
   .pallet-overview .stat-tile { padding: 16px; border-radius: 20px; }

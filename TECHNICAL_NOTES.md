@@ -1,5 +1,22 @@
 # Magazynier — notatka techniczna
 
+## Aktualizacja: Material 3 — trzecia partia wizualna
+
+- Galeria i potwierdzenia wykorzystują natywne elementy `dialog` i `showModal()`:
+  przeglądarka zapewnia warstwę modalną oraz nieaktywne tło. Escape anuluje operację.
+- Potwierdzenie zapamiętuje formularz i przycisk wysyłający. Dopiero akceptacja
+  wywołuje `requestSubmit()`; jednorazowa zgoda zapobiega ponownemu otwarciu dialogu,
+  a blokada ponownego wysłania jest resetowana po powrocie przez bfcache.
+- Komunikaty z nazwami są wstawiane przez `textContent`, nie `innerHTML`.
+- Lightbox ma stan wczytywania i błędu, ponowienie, licznik, nawigację cykliczną
+  oraz wykrywanie poziomego gestu dotykowego. Zamknięcie przywraca fokus.
+- Inspektor pozostaje widokiem odczytowym. Filtrowanie ukrywa tylko wiersze DOM;
+  nie jest audytem integralności bazy ani sprawdzaniem obecności zdjęć na dysku.
+- Testy Playwright sprawdzają akceptację i anulowanie z kontrolą liczby POST,
+  modalność, rozmiary dialogów, pojedyncze i wielokrotne zdjęcia, błąd obrazu,
+  ponowienie, symulowany gest oraz filtrowanie inspektora.
+- Redesign nie wprowadza logowania, autoryzacji ani CSRF — to nadal następny etap.
+
 ## Aktualizacja: Material 3 — druga partia wizualna
 
 - Przebudowano szablony palety i produktu bez zmian tras POST ani modeli bazy.
