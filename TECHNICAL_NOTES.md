@@ -1,5 +1,22 @@
 # Magazynier — notatka techniczna
 
+## Aktualizacja: Material 3 — pierwsza partia wizualna
+
+- Arkusz `app/static/styles.css` zastąpiono spójnym zestawem tokenów kolorów,
+  powierzchni, kształtów i stanów interakcji. Nie jest to warstwa nadpisująca
+  stary styl ani integracja z zewnętrznym frameworkiem.
+- `app/templates/components.html` udostępnia makro lokalnych ikon SVG. Bazowy
+  layout zawiera link pominięcia nawigacji oraz czytelny fokus klawiatury.
+- Strona główna ma natywny zwijany formularz, automatycznie otwierany przez
+  serwer przy błędzie walidacji. JavaScript jedynie usprawnia otwieranie i fokus.
+- Na małych ekranach lista palet przechodzi z tabeli w karty. Role i tekst
+  dostępności paska zwrotu uwzględniają wyniki powyżej 100%.
+- `tests/test_material_ui.py` dodaje kontrolę otwierania formularza, lokalnych
+  zasobów i wybranych par kontrastu WCAG AA. `tests/browser_smoke.py` to osobny,
+  opcjonalny zestaw Playwright/Edge do testowania rzeczywistego układu i JavaScriptu.
+- Zmiana nie modyfikuje bazy ani logiki sprzedaży. Układ palety, karty buta
+  i rozbudowane interakcje będą porządkowane w kolejnych partiach wizualnych.
+
 ## Aktualizacja: partia 2 — formularze i dostęp do plików
 
 - `app/validation.py` zawiera parsery tekstów, dat, kwot i identyfikatorów oraz

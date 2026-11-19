@@ -30,6 +30,42 @@ Lokalna aplikacja webowa do zarządzania magazynem butów przechowywanych w pale
 - Jinja2,
 - HTML/CSS/JavaScript.
 
+## Interfejs — Material 3
+
+Pierwsza partia wizualna wprowadza ciemny grafitowo-zielony motyw inspirowany
+Material Design 3: tonalne powierzchnie, wspólne kolory semantyczne, większe pola
+dotykowe, widoczny fokus oraz lokalne ikony SVG. Nie wymaga zewnętrznych fontów,
+CDN ani frameworka JavaScript. To własny lekki interfejs, nie oficjalna biblioteka Google.
+
+Na stronie głównej formularz nowej palety jest zwijany; po błędzie otwiera się
+automatycznie. Lista palet ma formę tabeli na komputerze i kart na telefonie.
+Dashboard zachowuje dotychczasowe statystyki. Pozostałe ekrany korzystają ze
+wspólnych nowych stylów; reorganizacja ich układu stanowi kolejne partie wizualne.
+
+### Opcjonalne testy przeglądarkowe
+
+Podstawowy zestaw testów pozostaje dostępny bez dodatkowych zależności:
+
+```powershell
+python -m unittest discover -s tests -v
+```
+
+Dodatkowo dostępny jest osobny zestaw Playwright, uruchamiający prawdziwą
+przeglądarkę Edge w trybie bez okna. Korzysta z tymczasowej bazy i danych
+demonstracyjnych oraz serwera wyłącznie na lokalnym, losowym porcie:
+
+```powershell
+python -m pip install -r requirements-ui.txt
+python tests/browser_smoke.py -v
+```
+
+Wymagany jest zainstalowany Microsoft Edge. Testy sprawdzają szerokości 320, 390,
+768 i 1440 px, brak poziomego przepełnienia stron, otwieranie formularza, fokus,
+zachowanie danych po błędzie, obsługę klawiatury i brak zewnętrznych zasobów.
+Zrzuty ekranu z danych demonstracyjnych trafiają do ignorowanego `.ui-artifacts/`.
+Test kontrastu w podstawowym zestawie sprawdza wybrane pary tokenów tekst/tło;
+nie zastępuje pełnego audytu dostępności.
+
 ## Struktura projektu
 
 ```text

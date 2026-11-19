@@ -19,6 +19,7 @@ ENV/
 .env.*
 !.env.example
 .session-key
+.ui-artifacts/
 
 # Local database files
 *.db

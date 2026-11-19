@@ -1,0 +1,2 @@
+# Optional browser tests only. Not needed to run the inventory application.
+playwright==1.65.2

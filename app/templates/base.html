@@ -1,3 +1,4 @@
+{% from "components.html" import icon %}
 <!doctype html>
 <html lang="pl">
   <head>
@@ -8,20 +9,19 @@
     <link rel="stylesheet" href="/static/styles.css" />
   </head>
   <body>
-    <div class="bg-glow bg-glow-1"></div>
-    <div class="bg-glow bg-glow-2"></div>
-
+    <a class="skip-link" href="#main-content">Przejdź do treści</a>
     <header class="topbar">
       <a class="brand" href="/">
-        <span class="brand-logo-wrap"><img src="/static/favicon.svg" alt="Magazynier" class="brand-logo" /></span>
-        <span class="brand-copy"><strong>MAGAZYNIER</strong><small>panel magazynowy</small></span>
+        <span class="brand-logo-wrap">{{ icon('warehouse') }}</span>
+        <span class="brand-copy"><strong>Magazynier</strong><small>Twój magazyn pod kontrolą</small></span>
       </a>
-      <nav class="topbar-nav">
-        <a href="/" class="{% if request.path == '/' or request.path.startswith('/pallets') or request.path.startswith('/shoes') %}active{% endif %}"><span>▦</span> Palety</a>
+      <nav class="topbar-nav" aria-label="Nawigacja główna">
+        <a href="/" class="{% if request.path == '/' or request.path.startswith('/pallets') or request.path.startswith('/shoes') %}active{% endif %}">{{ icon('box') }} <span>Magazyn</span></a>
+        <a href="/db-inspector" class="{% if request.path == '/db-inspector' %}active{% endif %}">{{ icon('database') }} <span>Inspektor</span></a>
       </nav>
     </header>
 
-    <main class="container">
+    <main class="container" id="main-content" tabindex="-1">
       {% for category, message in get_flashed_messages(with_categories=true) %}
       <div class="notice notice-{{ category }}" role="status">{{ message }}</div>
       {% endfor %}

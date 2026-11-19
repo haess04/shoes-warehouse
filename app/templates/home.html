@@ -1,24 +1,25 @@
 {% extends "base.html" %}
+{% from "components.html" import icon %}
 
 {% block content %}
-<section class="hero card">
-  <span class="section-kicker">Centrum zarządzania</span>
-  <h1>Magazynier <span class="title-accent">— Palety</span></h1>
-  <p class="hero-subtitle">Zarządzaj dostawami butów, stanem magazynu i sprzedażą w jednym miejscu.</p>
-  <div class="inline-form-wrap" style="margin-top: 10px; gap: 10px; align-items: center; flex-wrap: wrap;">
-    <a class="btn-primary btn-small" href="/db-inspector">Otwórz inspektor bazy</a>
+<section class="page-heading">
+  <div>
+    <span class="section-kicker">Przegląd magazynu</span>
+    <h1>Wszystko na swoim miejscu.</h1>
+    <p class="hero-subtitle">Palety, produkty i wyniki sprzedaży — w jednym miejscu.</p>
   </div>
+  <a class="btn-primary" href="#new-pallet" data-open-form="new-pallet">{{ icon('add') }} Dodaj paletę</a>
 </section>
 
-<section class="card">
+<section class="card search-card" aria-labelledby="global-search-title">
   <div class="section-heading">
-    <span class="section-icon">⌕</span>
-    <div><span class="section-kicker">Szybki dostęp</span><h2>Szukaj butów we wszystkich paletach i boxach</h2></div>
+    <span class="section-icon">{{ icon('search') }}</span>
+    <div><h2 id="global-search-title">Znajdź parę w całym magazynie</h2><p class="section-description">Szukaj po ID, nazwie lub kodzie palety.</p></div>
   </div>
   <form method="get" action="/" class="search-row">
-    <input type="text" name="shoe_q" value="{{ shoe_q }}" placeholder="Szukaj po ID buta, nazwie albo kodzie palety/boxa" />
-    <button type="submit" class="btn-primary">Szukaj</button>
-    <a class="link-muted" href="/">Wyczyść</a>
+    <input type="search" id="global-search" name="shoe_q" value="{{ shoe_q }}" aria-label="ID buta, nazwa lub kod palety" placeholder="Np. A012, Nike, BOX_A…" />
+    <button type="submit" class="btn-tonal">{{ icon('search') }} Szukaj</button>
+    {% if shoe_q %}<a class="btn-text" href="/">Wyczyść</a>{% endif %}
   </form>
 
   {% if shoe_q %}
@@ -71,11 +72,8 @@
   {% endif %}
 </section>
 
-<section class="card">
-  <div class="section-heading">
-    <span class="section-icon">＋</span>
-    <div><span class="section-kicker">Nowa dostawa</span><h2>Dodaj paletę lub box</h2></div>
-  </div>
+<details class="card form-disclosure" id="new-pallet" {% if g.form_errors and request.path == '/pallets' %}open{% endif %}>
+  <summary><span class="section-icon">{{ icon('add') }}</span><span><strong>Nowa paleta lub box</strong><small>Zarejestruj dostawę i koszt zakupu.</small></span>{{ icon('chevron', 'disclosure-chevron') }}</summary>
   <form method="post" action="/pallets" class="form-grid">
     <label>
       Kod palety
@@ -93,35 +91,33 @@
       Notatki
       <textarea name="notes" rows="3" maxlength="10000" placeholder="opcjonalnie">{{ form_value('notes') }}</textarea>
     </label>
-    <button type="submit" class="btn-primary">Zapisz paletę</button>
+    <div class="form-actions full"><button type="submit" class="btn-primary">{{ icon('check') }} Zapisz paletę</button><button type="button" class="btn-text" data-close-form="new-pallet">Anuluj</button></div>
   </form>
-</section>
+</details>
 
 <section class="card">
   <div class="section-heading section-heading-spread">
-    <div class="section-heading"><span class="section-icon">▦</span><div><span class="section-kicker">Magazyn</span><h2>Lista palet</h2></div></div>
-    <span class="count-pill">{{ pallets|length }} pozycji</span>
+    <div class="section-heading"><span class="section-icon">{{ icon('box') }}</span><div><h2>Twoje palety i boxy</h2><p class="section-description">Dostawy i postęp zwrotu kosztów.</p></div></div>
+    <span class="count-pill">Łącznie: {{ pallets|length }}</span>
   </div>
   {% if pallets %}
   <div class="table-wrap">
-  <table>
+  <table class="pallets-table">
     <thead>
       <tr>
-        <th>ID</th>
         <th>Kod</th>
         <th>Data dostawy</th>
         <th>Koszt brutto</th>
         <th>Stan zwrócenia</th>
-        <th>Akcja</th>
+        <th><span class="visually-hidden">Działania</span></th>
       </tr>
     </thead>
     <tbody>
       {% for p in pallets %}
       <tr class="clickable-row" data-href="/pallets/{{ p.id }}" role="link" tabindex="0">
-        <td><a href="/pallets/{{ p.id }}">{{ p.id }}</a></td>
-        <td><a href="/pallets/{{ p.id }}">{{ p.code }}</a></td>
-        <td><a href="/pallets/{{ p.id }}">{{ p.delivery_date }}</a></td>
-        <td><a href="/pallets/{{ p.id }}">{{ "%.2f"|format(p.purchase_gross) }} zł</a></td>
+        <td data-label="Paleta / box"><a class="pallet-code" href="/pallets/{{ p.id }}">{{ p.code }}</a></td>
+        <td data-label="Dostawa"><a href="/pallets/{{ p.id }}">{{ p.delivery_date }}</a></td>
+        <td data-label="Koszt zakupu"><a class="numeric" href="/pallets/{{ p.id }}">{{ "%.2f"|format(p.purchase_gross) }} zł</a></td>
         <td class="return-cell">
           {% set return_data = pallet_returns[p.id] %}
           <a href="/pallets/{{ p.id }}" class="return-summary">
@@ -136,7 +132,8 @@
             class="return-progress"
             role="progressbar"
             aria-label="Stan zwrócenia palety {{ p.code }}"
-            aria-valuenow="{{ '%.1f'|format(return_data.return_percent) }}"
+            aria-valuenow="{{ '%.1f'|format(return_data.bar_percent) }}"
+            aria-valuetext="{{ '%.1f'|format(return_data.return_percent) }} procent zwrotu kosztów"
             aria-valuemin="0"
             aria-valuemax="100"
           >
@@ -150,7 +147,7 @@
             class="inline-form"
             data-confirm="Usunąć paletę {{ p.code }}? Operacja usunie też wszystkie buty i zdjęcia z bazy."
           >
-            <button type="submit" class="btn-danger btn-small">Usuń paletę</button>
+            <button type="submit" class="btn-icon btn-danger-quiet" aria-label="Usuń paletę {{ p.code }}" title="Usuń paletę">{{ icon('delete') }}</button>
           </form>
         </td>
       </tr>
@@ -159,7 +156,7 @@
   </table>
   </div>
   {% else %}
-  <p class="muted">Brak palet w bazie.</p>
+  <div class="dashboard-empty">{{ icon('box') }}<strong>Tu zaczyna się Twój magazyn</strong><span>Dodaj pierwszą paletę, aby uporządkować produkty i śledzić sprzedaż.</span><a class="btn-tonal" href="#new-pallet" data-open-form="new-pallet">{{ icon('add') }} Dodaj pierwszą paletę</a></div>
   {% endif %}
 </section>
 
@@ -170,30 +167,30 @@
       <h2>Statystyki magazynu</h2>
       <p>Najważniejsze liczby, sprzedaż i pozycje wymagające uwagi.</p>
     </div>
-    <span class="dashboard-live-dot">Dane na żywo</span>
+    <span class="dashboard-chip">{{ icon('chart') }} Aktualny stan magazynu</span>
   </div>
 
   <div class="dashboard-metrics">
     <article class="metric-card metric-card-sales">
-      <span class="metric-icon">↗</span>
+      <span class="metric-icon">{{ icon('trend') }}</span>
       <span class="metric-label">Przychód całkowity</span>
       <strong class="metric-value">{{ "%.2f"|format(inventory_summary.total_sales_value) }} zł</strong>
       <span class="metric-detail">{{ inventory_summary.sold_shoes }} sprzedanych par</span>
     </article>
     <article class="metric-card metric-card-cost">
-      <span class="metric-icon">◇</span>
+      <span class="metric-icon">{{ icon('wallet') }}</span>
       <span class="metric-label">Koszt wszystkich palet</span>
       <strong class="metric-value">{{ "%.2f"|format(inventory_summary.total_purchase_cost) }} zł</strong>
       <span class="metric-detail">{{ pallets|length }} palet i boxów</span>
     </article>
     <article class="metric-card metric-card-return">
-      <span class="metric-icon">%</span>
+      <span class="metric-icon">{{ icon('percent') }}</span>
       <span class="metric-label">Globalny zwrot</span>
       <strong class="metric-value">{{ "%.1f"|format(inventory_summary.global_return_percent) }}%</strong>
       <span class="metric-detail">sprzedaż względem kosztów zakupu</span>
     </article>
     <article class="metric-card metric-card-stock">
-      <span class="metric-icon">▦</span>
+      <span class="metric-icon">{{ icon('box') }}</span>
       <span class="metric-label">Rotacja magazynu</span>
       <strong class="metric-value">{{ inventory_summary.sold_shoes }}/{{ inventory_summary.total_shoes }}</strong>
       <span class="metric-detail">{{ "%.1f"|format(inventory_summary.sold_share_percent) }}% sprzedanych · {{ inventory_summary.available_shoes }} dostępnych</span>
@@ -217,7 +214,7 @@
           {% if dashboard_first_photo_by_shoe.get(shoe.id) %}
             <img class="top-sale-image" src="/media/{{ dashboard_first_photo_by_shoe[shoe.id].file_path }}" alt="{{ shoe.internal_id }}" loading="lazy" />
           {% else %}
-            <span class="top-sale-image top-sale-image-empty">◇</span>
+            <span class="top-sale-image top-sale-image-empty">{{ icon('image') }}</span>
           {% endif %}
           <span class="top-sale-info">
             <strong>{{ shoe.name }}</strong>
@@ -340,6 +337,23 @@
 </section>
 
 <script>
+  document.querySelectorAll('[data-open-form]').forEach((trigger) => {
+    trigger.addEventListener('click', (event) => {
+      const panel = document.getElementById(trigger.dataset.openForm);
+      if (!panel) return;
+      event.preventDefault();
+      panel.open = true;
+      panel.scrollIntoView({ block: 'nearest' });
+      panel.querySelector('input')?.focus({ preventScroll: true });
+    });
+  });
+  document.querySelectorAll('[data-close-form]').forEach((trigger) => {
+    trigger.addEventListener('click', () => {
+      const panel = document.getElementById(trigger.dataset.closeForm);
+      panel.open = false;
+      panel.querySelector('summary').focus();
+    });
+  });
   document.querySelectorAll('.clickable-row').forEach((row) => {
     const href = row.dataset.href;
     row.addEventListener('click', (event) => {
@@ -347,6 +361,7 @@
       window.location.href = href;
     });
     row.addEventListener('keydown', (event) => {
+      if (event.target !== row) return;
       if (event.key === 'Enter' || event.key === ' ') {
         event.preventDefault();
         window.location.href = href;
