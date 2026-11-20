@@ -11,6 +11,8 @@
   <a class="btn-primary" href="#new-pallet" data-open-form="new-pallet">{{ icon('add') }} Dodaj paletę</a>
 </section>
 
+<div class="warehouse-layout">
+<div class="warehouse-main">
 <section class="card search-card" aria-labelledby="global-search-title">
   <div class="section-heading">
     <span class="section-icon">{{ icon('search') }}</span>
@@ -161,7 +163,27 @@
   {% endif %}
 </section>
 
-<section class="dashboard-section">
+</div>
+<aside class="warehouse-sidebar" aria-label="Szybkie podsumowanie magazynu">
+  <section class="card quick-summary">
+    <span class="section-kicker">Pod ręką</span><h2>Magazyn w skrócie</h2>
+    <dl class="quick-stats">
+      <div><dt>Dostępne pary</dt><dd>{{ inventory_summary.available_shoes }}</dd></div>
+      <div><dt>Sprzedane pary</dt><dd>{{ inventory_summary.sold_shoes }}</dd></div>
+      <div><dt>Palety i boxy</dt><dd>{{ pallets|length }}</dd></div>
+    </dl>
+    <a class="btn-outlined" href="#inventory-dashboard">{{ icon('chart') }} Pełne statystyki</a>
+  </section>
+  <section class="card sidebar-month">
+    <span class="section-kicker">Sprzedaż w tym miesiącu</span>
+    <h2>{{ monthly_statistics.current_label }}</h2>
+    <strong class="sidebar-amount">{{ '%.2f'|format(monthly_statistics.current.value) }} zł</strong>
+    <p>{{ monthly_statistics.current.count }} sprzedanych par</p>
+  </section>
+</aside>
+</div>
+
+<section class="dashboard-section" id="inventory-dashboard">
   <div class="dashboard-heading">
     <div>
       <span class="dashboard-kicker">Panel wyników</span>

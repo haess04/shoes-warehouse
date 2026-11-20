@@ -14,7 +14,7 @@ import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from PIL import Image
+from PIL import Image, ImageDraw
 from playwright.sync_api import sync_playwright
 from werkzeug.serving import make_server, WSGIRequestHandler
 
@@ -83,7 +83,7 @@ class BrowserSmokeTests(unittest.TestCase):
         self.page.on("pageerror", lambda error: self.errors.append(str(error)))
 
     def test_pages_fit_mobile_tablet_and_desktop(self):
-        for width in (320, 390, 768, 1440):
+        for width in (320, 390, 768, 1440, 1920, 2560):
             self.page.set_viewport_size({"width": width, "height": 900})
             for path in ("/", f"/pallets/{self.pid}", f"/shoes/{self.sid}", "/db-inspector"):
                 with self.subTest(width=width, path=path):
@@ -257,6 +257,65 @@ class BrowserSmokeTests(unittest.TestCase):
         self.assertTrue(self.page.get_by_role("button", name="Poprzednie zdjęcie", exact=True).is_disabled())
         self.assertEqual(self.page.locator(".lightbox-counter").inner_text(), "1 / 1")
 
+    def test_high_resolution_gallery_keeps_entire_original_in_view(self):
+        folder = self.app.config['PHOTOS_ROOT'] / 'BOX_A' / 'A001'
+        for name, size in (("fit-portrait", (3000, 4000)), ("fit-landscape", (4800, 3200)), ("fit-small", (240, 180))):
+            fixture = Image.new('RGB', size, '#607d72')
+            draw = ImageDraw.Draw(fixture)
+            draw.rectangle((0, 0, size[0] - 1, size[1] - 1), outline='#f5ca63', width=max(4, size[0] // 40))
+            fixture.save(folder / f'{name}.jpg')
+            for width, height in ((1920, 900), (1440, 900), (390, 700)):
+                with self.subTest(image=name, viewport=(width, height)):
+                    self.page.set_viewport_size({'width': width, 'height': height})
+                    self.page.goto(f'{self.url}/shoes/{self.sid}')
+                    source = f'{self.url}/media/PALETY/BOX_A/A001/{name}.jpg'
+                    self.page.locator('.js-gallery-open').first.evaluate('''(el, source) => {
+                        el.href = el.dataset.src = source;
+                        el.querySelector('img').src = source;
+                    }''', source)
+                    self.page.locator('.js-gallery-open').first.click()
+                    self.page.locator('.image-lightbox-image').wait_for(state='visible')
+                    geometry = self.page.evaluate('''() => {
+                        const image = document.querySelector('.image-lightbox-image');
+                        const stage = document.querySelector('.lightbox-stage');
+                        const a = image.getBoundingClientRect(), b = stage.getBoundingClientRect();
+                        return {src: image.currentSrc, naturalWidth: image.naturalWidth, naturalHeight: image.naturalHeight,
+                                x: a.x, y: a.y, right: a.right, bottom: a.bottom, width: a.width, height: a.height,
+                                stageX: b.x, stageY: b.y, stageRight: b.right, stageBottom: b.bottom};
+                    }''')
+                    self.assertEqual(geometry['src'], source)
+                    self.assertEqual((geometry['naturalWidth'], geometry['naturalHeight']), size)
+                    self.assertGreaterEqual(geometry['x'] + 1, geometry['stageX'])
+                    self.assertGreaterEqual(geometry['y'] + 1, geometry['stageY'])
+                    self.assertLessEqual(geometry['right'], geometry['stageRight'] + 1)
+                    self.assertLessEqual(geometry['bottom'], geometry['stageBottom'] + 1)
+                    self.assertLessEqual(geometry['width'], size[0] + 1)
+                    self.assertLessEqual(geometry['height'], size[1] + 1)
+                    self.assertAlmostEqual(geometry['width'] / geometry['height'], size[0] / size[1], places=2)
+                    if width in (1920, 390):
+                        output = Path(os.environ.get('UI_SCREENSHOT_DIR', '.ui-artifacts'))
+                        output.mkdir(parents=True, exist_ok=True)
+                        self.page.screenshot(path=str(output / f'{name}-{width}.png'))
+                    if width == 1920:
+                        self.page.set_viewport_size({'width': 390, 'height': 700})
+                        self.page.wait_for_function('''() => {
+                            const a = document.querySelector('.image-lightbox-image').getBoundingClientRect();
+                            const b = document.querySelector('.lightbox-stage').getBoundingClientRect();
+                            return a.right <= b.right + 1 && a.bottom <= b.bottom + 1 && a.x >= b.x - 1 && a.y >= b.y - 1;
+                        }''')
+
+    def test_wide_home_uses_space_for_summary_without_mobile_duplication(self):
+        self.page.set_viewport_size({'width': 1920, 'height': 1000})
+        self.page.goto(self.url)
+        self.assertTrue(self.page.locator('.warehouse-sidebar').is_visible())
+        bounds = self.page.locator('main.container').bounding_box()
+        self.assertGreater(bounds['width'], 1600)
+        self.assertLessEqual(bounds['width'], 1760)
+        self.assertGreater(self.page.locator('.warehouse-sidebar').bounding_box()['x'], self.page.locator('.warehouse-main').bounding_box()['x'])
+        self.page.set_viewport_size({'width': 390, 'height': 900})
+        self.assertFalse(self.page.locator('.warehouse-sidebar').is_visible())
+        self.assertTrue(self.page.locator('#inventory-dashboard').is_visible())
+
     def test_gallery_load_error_and_retry(self):
         self.page.route("**/media/PALETY/BOX_A/A001/2.jpg", lambda route: route.fulfill(status=404, body="missing"))
         self.page.goto(f"{self.url}/shoes/{self.sid}")
@@ -328,7 +387,7 @@ class BrowserSmokeTests(unittest.TestCase):
         self.page.on("request", lambda request: external.append(request.url) if request.url.startswith("http") and not request.url.startswith(self.url + "/") else None)
         output = Path(os.environ.get("UI_SCREENSHOT_DIR", ".ui-artifacts"))
         output.mkdir(parents=True, exist_ok=True)
-        for width in (1440, 390):
+        for width in (1920, 1440, 390):
             self.page.set_viewport_size({"width": width, "height": 1000})
             for name, path in (("home", "/"), ("pallet", f"/pallets/{self.pid}"), ("shoe", f"/shoes/{self.sid}"), ("inspector", "/db-inspector")):
                 self.page.goto(self.url + path)

@@ -1,5 +1,19 @@
 # Magazynier — notatka techniczna
 
+## Korekta: kontrast, szerokie ekrany i duże zdjęcia
+
+- Powierzchnie mają wyraźniejsze poziomy i obramowania, a limit kontenera wynosi
+  1760 px. Desktopowy panel boczny wykorzystuje istniejące dane z widoku głównego
+  bez dodatkowych zapytań do bazy; na małych ekranach podsumowanie nie jest dublowane.
+- Odtworzono błąd lightboxa na obrazie 3000×4000: procentowe ograniczenie wysokości
+  wewnątrz siatki nie ograniczało poprawnie rozmiaru obrazu i duży kadr był ucinany.
+- `fitImage()` oblicza skalę jako minimum dostępnej szerokości / naturalnej
+  szerokości, dostępnej wysokości / naturalnej wysokości oraz 1. Wymiary ustawiane
+  są po załadowaniu obrazu i aktualizowane przez ResizeObserver oraz resize.
+- Test Playwright kontroluje zgodność źródła miniatury i podglądu, naturalne
+  wymiary, granice obrazu względem sceny, proporcje, brak powiększania małych plików
+  i ponowne dopasowanie przy zmianie okna. Kontrole układu obejmują też 1920 i 2560 px.
+
 ## Aktualizacja: Material 3 — trzecia partia wizualna
 
 - Galeria i potwierdzenia wykorzystują natywne elementy `dialog` i `showModal()`:

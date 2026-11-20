@@ -104,10 +104,23 @@
   let start = null;
   let swiped = false;
 
+  const fitImage = () => {
+    if (!lightbox.open || image.hidden || !image.naturalWidth || !image.naturalHeight) return;
+    // Use the actual stage dimensions: percentage max-height inside grid can
+    // otherwise resolve against an intrinsic track and clip camera-sized files.
+    const scale = Math.min(stage.clientWidth / image.naturalWidth,
+                           stage.clientHeight / image.naturalHeight, 1);
+    image.style.width = `${image.naturalWidth * scale}px`;
+    image.style.height = `${image.naturalHeight * scale}px`;
+  };
+  if ('ResizeObserver' in window) new ResizeObserver(fitImage).observe(stage);
+  window.addEventListener('resize', fitImage);
+
   const showImage = (position) => {
     index = (position + buttons.length) % buttons.length;
     const selected = buttons[index];
     image.hidden = true;
+    image.style.width = image.style.height = '';
     feedback.hidden = false;
     retry.hidden = true;
     message.textContent = 'Wczytywanie zdjęcia…';
@@ -123,6 +136,7 @@
     image.hidden = false;
     feedback.hidden = true;
     stage.setAttribute('aria-busy', 'false');
+    fitImage();
   });
   image.addEventListener('error', () => {
     if (!lightbox.open) return;

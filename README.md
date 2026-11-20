@@ -32,7 +32,7 @@ Lokalna aplikacja webowa do zarządzania magazynem butów przechowywanych w pale
 
 ## Interfejs — Material 3
 
-Pierwsza partia wizualna wprowadza ciemny grafitowo-zielony motyw inspirowany
+Pierwsza partia wizualna wprowadza ciemny motyw inspirowany
 Material Design 3: tonalne powierzchnie, wspólne kolory semantyczne, większe pola
 dotykowe, widoczny fokus oraz lokalne ikony SVG. Nie wymaga zewnętrznych fontów,
 CDN ani frameworka JavaScript. To własny lekki interfejs, nie oficjalna biblioteka Google.
@@ -73,6 +73,19 @@ Trzecia partia zamyka podstawowy redesign:
 Dialog potwierdzenia nie zastępuje autoryzacji ani CSRF. Logowanie i backup
 pozostają kolejnymi partiami technicznymi. Interfejs zakłada współczesną przeglądarkę
 obsługującą natywne dialogi HTML (aktualny Chrome, Edge, Firefox lub Safari).
+
+Po testach na rzeczywistych ekranach dopracowano czytelność: tło jest ciemniejsze,
+powierzchnie mają chłodniejsze odcienie grafitu, jaśniejsze obramowania i oddzielone
+poziomy kart. Turkusowo-zielony pozostaje akcentem działań i wyników.
+Układ na dużych monitorach ma do 1760 px, a strona główna od 1280 px pokazuje
+przyklejone podsumowanie magazynu i miesiąca obok listy palet. Na mniejszych ekranach
+te dane pozostają w pełnych statystykach, bez dodatkowego powtarzania panelu.
+
+Poprawiono również dopasowanie dużych zdjęć: podgląd używa tego samego pliku co
+miniatura i oblicza rozmiar z dostępnej przestrzeni oraz naturalnych wymiarów obrazu.
+Cały kadr pozostaje widoczny, proporcje są zachowane, a małe pliki nie są rozciągane
+ponad oryginalny rozmiar. Dopasowanie aktualizuje się po zmianie rozmiaru okna.
+Testy obejmują duże obrazy pionowe i poziome oraz mały obraz, nie tylko miniatury.
 
 ### Opcjonalne testy przeglądarkowe
 
