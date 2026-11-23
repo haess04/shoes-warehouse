@@ -1,5 +1,64 @@
 /* Progressive enhancement shared by all server-rendered inventory pages. */
 (() => {
+  const oneLine = (text) => text.replace(/\s+/g, ' ').trim();
+  // Excel should receive text, never HTML styles or tabs/newlines splitting cells.
+  document.addEventListener('copy', (event) => {
+    if (document.activeElement?.matches('input, textarea, [contenteditable="true"]')) return;
+    const selection = window.getSelection();
+    if (!event.clipboardData || !selection || selection.isCollapsed || selection.rangeCount !== 1) return;
+    const range = selection.getRangeAt(0);
+    const node = range.commonAncestorContainer;
+    const element = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
+    const selectedText = oneLine(selection.toString());
+    const source = element?.closest('[data-copy-plain]') ||
+      Array.from(document.querySelectorAll('[data-copy-plain]')).find(el =>
+        range.intersectsNode(el) && oneLine(el.textContent) === selectedText);
+    if (!source) return;
+    event.clipboardData.clearData();
+    event.clipboardData.setData('text/plain', selectedText);
+    event.preventDefault();
+  });
+
+  const legacyCopy = (text) => {
+    const previousFocus = document.activeElement;
+    const selection = window.getSelection();
+    const ranges = selection ? Array.from({ length: selection.rangeCount }, (_, i) => selection.getRangeAt(i).cloneRange()) : [];
+    const input = document.createElement('textarea');
+    input.value = text;
+    input.setAttribute('readonly', '');
+    input.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;';
+    document.body.append(input);
+    input.select();
+    let copied = false;
+    try { copied = document.execCommand('copy'); }
+    finally {
+      input.remove();
+      previousFocus?.focus({ preventScroll: true });
+      if (selection) {
+        selection.removeAllRanges();
+        ranges.forEach(range => selection.addRange(range));
+      }
+    }
+    if (!copied) throw new Error('Clipboard not available');
+  };
+  document.querySelectorAll('[data-copy-target]').forEach((button) => {
+    button.addEventListener('click', async () => {
+      const source = document.getElementById(button.dataset.copyTarget);
+      if (!source) return;
+      const status = button.parentElement.querySelector('.copy-status');
+      const text = oneLine(source.textContent);
+      try {
+        if (navigator.clipboard?.writeText) {
+          try { await navigator.clipboard.writeText(text); }
+          catch { legacyCopy(text); }
+        } else legacyCopy(text); // HTTP LAN has no Async Clipboard API.
+        status.textContent = 'Skopiowano kod i pełną nazwę — wklej Ctrl+V.';
+      } catch {
+        status.textContent = 'Zaznacz tytuł powyżej i skopiuj go przez Ctrl+C.';
+      }
+    });
+  });
+
   document.querySelectorAll('[data-open-form]').forEach((trigger) => {
     trigger.addEventListener('click', (event) => {
       const panel = document.getElementById(trigger.dataset.openForm);

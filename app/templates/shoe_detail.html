@@ -4,7 +4,7 @@
 {% block content %}
 <nav class="breadcrumbs" aria-label="Ścieżka nawigacji"><a href="/">Magazyn</a><span aria-hidden="true">/</span><a href="/pallets/{{ pallet.id }}">{{ pallet.code }}</a><span aria-hidden="true">/</span><span aria-current="page">{{ shoe.internal_id }}</span></nav>
 <section class="page-heading product-heading">
-  <div><span class="section-kicker">Karta produktu · {{ shoe.internal_id }}</span><h1>{{ shoe.name }}</h1><p class="hero-subtitle">Paleta <a href="/pallets/{{ pallet.id }}">{{ pallet.code }}</a></p></div>
+  <div><span class="section-kicker">Karta produktu</span><h1 id="product-copy-title" data-copy-plain>{{ shoe.internal_id }} - {{ shoe.name }}</h1><div class="product-title-actions"><p class="hero-subtitle">Paleta <a href="/pallets/{{ pallet.id }}">{{ pallet.code }}</a></p><button type="button" class="btn-tonal btn-small" data-copy-target="product-copy-title">{{ icon('copy') }} Kopiuj do Excela</button><span class="copy-status" role="status" aria-live="polite"></span></div></div>
   <span class="badge {{ shoe.status }}">{% if shoe.status == 'sold' %}{{ icon('check') }} Sprzedane{% else %}Dostępne w magazynie{% endif %}</span>
 </section>
 

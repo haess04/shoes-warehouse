@@ -253,6 +253,73 @@ class BrowserSmokeTests(unittest.TestCase):
         with self.app.app_context(), get_session() as db:
             self.assertIsNone(db.query(Pallet).filter_by(code='SHOULD_NOT_EXIST').first())
 
+    def clipboard_contents(self):
+        return self.page.evaluate('''async () => {
+            const items = await navigator.clipboard.read();
+            const types = items.flatMap(item => item.types);
+            return {types, text: await navigator.clipboard.readText()};
+        }''')
+
+    def test_copy_button_writes_code_and_name_as_plain_text(self):
+        self.page.context.grant_permissions(['clipboard-read', 'clipboard-write'])
+        self.page.goto(f'{self.url}/shoes/{self.sid}')
+        expected = self.page.locator('#product-copy-title').inner_text()
+        self.assertTrue(expected.startswith('A001 - '))
+        self.page.get_by_role('button', name='Kopiuj do Excela', exact=True).click()
+        self.page.wait_for_function("document.querySelector('.copy-status').textContent.includes('Skopiowano')")
+        clipboard = self.clipboard_contents()
+        self.assertEqual(clipboard['text'], expected)
+        self.assertIn('text/plain', clipboard['types'])
+        self.assertNotIn('text/html', clipboard['types'])
+
+    def test_ctrl_c_copies_title_without_html_or_extra_rows(self):
+        self.page.context.grant_permissions(['clipboard-read', 'clipboard-write'])
+        self.page.goto(f'{self.url}/shoes/{self.sid}')
+        expected = self.page.locator('#product-copy-title').inner_text()
+        for mode in ('contents', 'node'):
+            with self.subTest(selection=mode):
+                self.page.locator('#product-copy-title').evaluate('''(el, mode) => {
+                    const range = document.createRange();
+                    if (mode === 'node') range.selectNode(el); else range.selectNodeContents(el);
+                    const selection = getSelection(); selection.removeAllRanges(); selection.addRange(range);
+                }''', mode)
+                self.page.keyboard.press('Control+c')
+                clipboard = self.clipboard_contents()
+                self.assertEqual(clipboard['text'], expected)
+                self.assertNotIn('text/html', clipboard['types'])
+                self.assertNotIn('\n', clipboard['text'])
+                self.assertNotIn('\t', clipboard['text'])
+
+    def test_copy_works_without_async_clipboard_for_http_lan(self):
+        self.page.context.grant_permissions(['clipboard-read', 'clipboard-write'])
+        self.page.goto(f'{self.url}/shoes/{self.sid}')
+        expected = self.page.locator('#product-copy-title').inner_text()
+        self.page.evaluate("Object.defineProperty(navigator, 'clipboard', {value: undefined, configurable: true})")
+        self.page.get_by_role('button', name='Kopiuj do Excela', exact=True).click()
+        self.page.wait_for_function("document.querySelector('.copy-status').textContent.includes('Skopiowano')")
+        self.page.evaluate('delete navigator.clipboard')
+        clipboard = self.clipboard_contents()
+        self.assertEqual(clipboard['text'], expected)
+        self.assertNotIn('text/html', clipboard['types'])
+
+    def test_copy_normalizes_tabs_and_line_breaks_only_for_title(self):
+        self.page.context.grant_permissions(['clipboard-read', 'clipboard-write'])
+        self.page.goto(f'{self.url}/shoes/{self.sid}')
+        self.page.locator('#product-copy-title').evaluate("el => el.textContent = 'A001 - Pull&Bear\\n40\\tczarne   botki'")
+        self.page.get_by_role('button', name='Kopiuj do Excela', exact=True).click()
+        self.page.wait_for_function("document.querySelector('.copy-status').textContent.includes('Skopiowano')")
+        self.assertEqual(self.clipboard_contents()['text'], 'A001 - Pull&Bear 40 czarne botki')
+
+    def test_available_and_sold_badges_have_distinct_colors(self):
+        self.page.goto(f'{self.url}/pallets/{self.pid}')
+        colors = self.page.evaluate('''() => ['available', 'sold'].map(status => {
+            const style = getComputedStyle(document.querySelector(`.badge.${status}`));
+            return {background: style.backgroundColor, color: style.color, border: style.borderTopColor};
+        })''')
+        self.assertNotEqual(colors[0]['background'], colors[1]['background'])
+        self.assertNotEqual(colors[0]['border'], colors[1]['border'])
+        self.assertNotEqual(colors[0]['color'], colors[1]['color'])
+
     def test_lightbox_keyboard_and_focus_restoration(self):
         self.page.goto(f"{self.url}/shoes/{self.sid}")
         self.page.locator(".js-gallery-open").first.click()

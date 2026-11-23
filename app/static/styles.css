@@ -23,6 +23,10 @@
   --success-container: #243e2b;
   --warning: #eac383;
   --warning-container: #433721;
+  --available-container: #1d432a;
+  --on-available: #b8e6bb;
+  --sold-container: #34345c;
+  --on-sold: #dedbff;
   --radius-small: 8px;
   --radius-medium: 12px;
   --radius-large: 16px;
@@ -234,8 +238,8 @@ td a:hover { color: var(--primary); }
 .return-progress { height: 8px; width: 100%; overflow: hidden; border-radius: 8px; background: var(--surface-container-highest); }
 .return-progress-fill { display: block; height: 100%; background: var(--success); border-radius: inherit; transition: width 240ms var(--motion-easing); }
 .badge { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: 600; white-space: nowrap; }
-.badge.available { color: var(--success); background: var(--success-container); }
-.badge.sold { color: var(--on-secondary-container); background: var(--secondary-container); }
+.badge.available { color: var(--on-available); background: var(--available-container); border: 1px solid #6ea679; }
+.badge.sold { color: var(--on-sold); background: var(--sold-container); border: 1px solid #8c86d9; }
 .thumb { display: block; width: 72px; height: 72px; border-radius: 12px; object-fit: cover; background: var(--surface-container-high); }
 
 /* Dashboard: tonal separation instead of gradients and glowing decorations. */
@@ -336,6 +340,8 @@ td a:hover { color: var(--primary); }
 .thumb-empty { display: grid; place-items: center; color: var(--on-surface-variant); }
 .product-heading { align-items: flex-start; }
 .product-heading h1 { font-size: clamp(26px, 3.1vw, 36px); }
+.product-title-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; margin-top: 16px; }
+.copy-status { color: var(--primary); font-size: 13px; }
 .product-heading > .badge { margin-top: 8px; }
 .product-layout { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 24px; align-items: start; }
 .product-main, .product-side { min-width: 0; }

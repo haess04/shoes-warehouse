@@ -1,4 +1,5 @@
 from html.parser import HTMLParser
+from html import unescape
 from datetime import date
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -82,6 +83,18 @@ class MaterialUITests(unittest.TestCase):
         for panel in ("product-edit", "photo-settings", "product-more"):
             self.assertFalse(panels[panel])
         self.assertIn("Oznacz jako sprzedane", response.get_data(as_text=True))
+
+    def test_product_heading_includes_code_and_complete_name(self):
+        _, sid = self.seed_product()
+        name = 'Pull&Bear 40 czarne botki na platformie masywna podeszwa chunky — pełna długa nazwa produktu'
+        with self.app.app_context(), get_session() as db:
+            db.get(Shoe, sid).name = name
+            db.commit()
+        html = self.client.get(f'/shoes/{sid}').get_data(as_text=True)
+        heading = re.search(r'<h1[^>]*>(.*?)</h1>', html, re.S).group(1)
+        self.assertEqual(unescape(heading), 'UI001 - ' + name)
+        self.assertIn('data-copy-target="product-copy-title"', html)
+        self.assertIn('data-copy-plain', html)
 
     def test_product_errors_open_only_matching_form(self):
         _, sid = self.seed_product(sold=True)
@@ -174,7 +187,8 @@ class MaterialUITests(unittest.TestCase):
         pairs = (("on-surface", "surface"), ("on-surface-variant", "surface-container-highest"),
                  ("on-primary", "primary"), ("on-primary-container", "primary-container"),
                  ("on-secondary-container", "secondary-container"), ("error", "error-container"),
-                 ("success", "success-container"), ("warning", "warning-container"))
+                 ("success", "success-container"), ("warning", "warning-container"),
+                 ("on-available", "available-container"), ("on-sold", "sold-container"))
         for foreground, background in pairs:
             with self.subTest(foreground=foreground, background=background):
                 low, high = sorted((luminance(tokens[foreground]), luminance(tokens[background])))

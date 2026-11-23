@@ -57,6 +57,15 @@ Druga partia wizualna porządkuje paletę i kartę buta:
 - formularze nadal działają jako natywne formularze HTML. Logika i schemat bazy
   nie zmieniają się w partiach wizualnych.
 
+Nagłówek karty produktu zawiera pełny tekst `ID - nazwa`. Przycisk „Kopiuj do Excela”
+kopiuje go jako jedną linię zwykłego tekstu. Ctrl+C przy zaznaczonym tytule także
+pomija HTML, kolory i tło strony. Dostęp przez HTTP w LAN korzysta z wariantu
+kopiowania niewymagającego nowoczesnego API schowka. Kopiowanie nie zmienia już
+istniejącego formatowania komórki docelowej — wcześniej przyciemnioną komórkę
+w arkuszu należy jednorazowo wyczyścić z formatowania.
+Statusy są rozróżnione również kolorystycznie: dostępne pary są zielone,
+sprzedane fioletowe, z odmiennymi obramowaniami i zachowanymi etykietami tekstowymi.
+
 Trzecia partia zamyka podstawowy redesign:
 
 - podgląd zdjęć działa jako natywny dialog: licznik, poprzednie/następne zdjęcie,
