@@ -37,7 +37,7 @@
   </details>
 </div>
 
-<details class="card form-disclosure" id="new-shoe" {% if g.form_errors and request.path.endswith('/shoes') %}open{% endif %}>
+<details class="card form-disclosure" id="new-shoe" open>
   <summary><span class="section-icon">{{ icon('add') }}</span><span><strong>Nowa para butów</strong><small>Identyfikator, nazwa i uwagi o produkcie.</small></span>{{ icon('chevron', 'disclosure-chevron') }}</summary>
   <form method="post" action="/pallets/{{ pallet.id }}/shoes" class="form-grid">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />

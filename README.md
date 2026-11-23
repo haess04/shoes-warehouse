@@ -45,6 +45,8 @@ Druga partia wizualna porządkuje paletę i kartę buta:
 
 - edycja notatek, kosztu oraz dodawanie produktu są zwijane; błędny formularz
   otwiera się automatycznie, bez utraty danych;
+- formularz dodawania buta jest domyślnie rozwinięty przy każdym wejściu do palety
+  i po dodaniu kolejnej pary; ręczne zwinięcie działa tylko do przeładowania strony;
 - lista produktów pokazuje miniaturę, ID, nazwę i status; na telefonie przechodzi
   w kompaktowe wiersze kart, bez technicznego ID rekordu;
 - karta buta ma galerię i osobny panel sprzedaży; na telefonie sprzedaż jest

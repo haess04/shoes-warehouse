@@ -144,7 +144,7 @@ class BrowserSmokeTests(unittest.TestCase):
 
     def test_pallet_new_product_form_and_duplicate_error(self):
         self.page.goto(f"{self.url}/pallets/{self.pid}")
-        self.assertFalse(self.page.locator("#new-shoe").evaluate("el => el.open"))
+        self.assertTrue(self.page.locator("#new-shoe").evaluate("el => el.open"))
         self.page.get_by_role("link", name="Dodaj buta", exact=True).click()
         self.assertEqual(self.page.evaluate("document.activeElement.name"), "internal_id")
         self.page.locator('[name="internal_id"]').fill("A001")
@@ -161,13 +161,29 @@ class BrowserSmokeTests(unittest.TestCase):
         self.addCleanup(page.close)
         self.login_page(page)
         page.goto(f"{self.url}/pallets/{self.pid}")
-        page.locator("#new-shoe summary").click()
+        self.assertTrue(page.locator('[name="internal_id"]').is_visible())
         page.locator('[name="internal_id"]').fill("A001")
         page.locator('[name="name"]').fill("Dane bez JavaScriptu")
         page.get_by_role("button", name="Dodaj buta", exact=True).click()
         page.locator("#form-errors").wait_for()
         self.assertTrue(page.locator('[name="name"]').is_visible())
         self.assertEqual(page.locator('[name="name"]').input_value(), "Dane bez JavaScriptu")
+
+    def test_sequential_product_additions_need_no_disclosure_click(self):
+        self.page.goto(f"{self.url}/pallets/{self.pid}")
+        for internal_id in ('BATCH001', 'BATCH002', 'BATCH003'):
+            self.assertTrue(self.page.locator('[name="internal_id"]').is_visible())
+            self.page.locator('[name="internal_id"]').fill(internal_id)
+            self.page.locator('[name="name"]').fill('Kolejna para testowa')
+            with self.page.expect_navigation():
+                self.page.get_by_role('button', name='Dodaj buta', exact=True).click()
+            self.assertTrue(self.page.locator('#new-shoe').evaluate('el => el.open'))
+            self.assertTrue(self.page.locator('[name="internal_id"]').is_visible())
+        # Remove only this test's fixtures; other browser tests share the pallet.
+        with self.app.app_context(), get_session() as db:
+            db.query(Shoe).filter(Shoe.internal_id.in_(('BATCH001', 'BATCH002', 'BATCH003'))).delete(synchronize_session=False)
+            db.commit()
+        self.assertEqual(self.errors, [])
 
     def test_pallet_product_filter(self):
         self.page.goto(f"{self.url}/pallets/{self.pid}")

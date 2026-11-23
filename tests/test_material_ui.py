@@ -45,10 +45,11 @@ class MaterialUITests(unittest.TestCase):
         parser.feed(response.get_data(as_text=True))
         return parser.panels
 
-    def test_pallet_editors_are_collapsed(self):
+    def test_new_shoe_form_is_open_but_other_pallet_editors_are_collapsed(self):
         pid, _ = self.seed_product()
         panels = self.panels(self.client.get(f"/pallets/{pid}"))
-        for panel in ("pallet-notes", "pallet-cost", "new-shoe"):
+        self.assertTrue(panels["new-shoe"])
+        for panel in ("pallet-notes", "pallet-cost"):
             self.assertFalse(panels[panel])
 
     def test_pallet_errors_open_only_matching_form(self):
@@ -62,7 +63,17 @@ class MaterialUITests(unittest.TestCase):
                 self.assertEqual(response.status_code, 422)
                 panels = self.panels(response)
                 self.assertTrue(panels[expected])
-                self.assertEqual(sum(panels.values()), 1)
+                self.assertTrue(panels["new-shoe"])
+                for panel in ("pallet-notes", "pallet-cost"):
+                    self.assertEqual(panels[panel], panel == expected)
+
+    def test_new_shoe_form_stays_open_after_successful_additions(self):
+        pid, _ = self.seed_product()
+        for internal_id in ("UI002", "UI003", "UI004"):
+            with self.subTest(internal_id=internal_id):
+                response = self.client.post(f"/pallets/{pid}/shoes", data={"internal_id": internal_id, "name": "New pair"}, follow_redirects=True)
+                self.assertEqual(response.status_code, 200)
+                self.assertTrue(self.panels(response)["new-shoe"])
 
     def test_product_editors_closed_and_sale_visible(self):
         _, sid = self.seed_product()
