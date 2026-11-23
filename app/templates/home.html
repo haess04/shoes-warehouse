@@ -77,6 +77,7 @@
 <details class="card form-disclosure" id="new-pallet" {% if g.form_errors and request.path == '/pallets' %}open{% endif %}>
   <summary><span class="section-icon">{{ icon('add') }}</span><span><strong>Nowa paleta lub box</strong><small>Zarejestruj dostawę i koszt zakupu.</small></span>{{ icon('chevron', 'disclosure-chevron') }}</summary>
   <form method="post" action="/pallets" class="form-grid">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
     <label>
       Kod palety
       <input type="text" name="code" value="{{ form_value('code') }}" maxlength="100" placeholder="np. PALETA_A" required />
@@ -150,6 +151,7 @@
             data-confirm="Usunąć paletę {{ p.code }}? Operacja usunie też wszystkie buty i zdjęcia z bazy."
             data-confirm-action="Usuń paletę"
           >
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
             <button type="submit" class="btn-icon btn-danger-quiet" aria-label="Usuń paletę {{ p.code }}" title="Usuń paletę">{{ icon('delete') }}</button>
           </form>
         </td>

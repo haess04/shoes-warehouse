@@ -27,11 +27,13 @@
       {% else %}
       <div class="dashboard-empty">{{ icon('image') }}<strong>Jeszcze bez zdjęć</strong><span>Umieść zdjęcia w folderze produktu i uruchom synchronizację.</span></div>
       {% endif %}
-      <div class="gallery-tools"><form method="post" action="/shoes/{{ shoe.id }}/photos/sync"><button type="submit" class="btn-outlined">{{ icon('sync') }} Synchronizuj zdjęcia</button></form></div>
+      <div class="gallery-tools"><form method="post" action="/shoes/{{ shoe.id }}/photos/sync">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" /><button type="submit" class="btn-outlined">{{ icon('sync') }} Synchronizuj zdjęcia</button></form></div>
       <details class="inline-disclosure" id="photo-settings" {% if g.form_errors and request.path.endswith('/photos') %}open{% endif %}>
         <summary>{{ icon('more') }} Folder i ręczne dodawanie {{ icon('chevron', 'disclosure-chevron') }}</summary>
         <p class="field-help">Folder zdjęć tego produktu:</p><p class="path-display">{{ expected_dir }}</p>
         <form method="post" action="/shoes/{{ shoe.id }}/photos" class="form-grid">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
           <label class="full">Ścieżka istniejącego zdjęcia<input type="text" name="file_path" value="{{ form_value('file_path') }}" maxlength="1000" placeholder="np. PALETY/PALETA_A/A001/1.jpg" required /></label>
           <div class="form-actions full"><button type="submit" class="btn-tonal">Dodaj ścieżkę</button></div>
         </form>
@@ -45,6 +47,7 @@
     <details class="card form-disclosure" id="product-edit" {% if g.form_errors and request.path.endswith('/details') %}open{% endif %}>
       <summary><span class="section-icon">{{ icon('edit') }}</span><span><strong>Edytuj produkt</strong><small>Identyfikator, nazwa i opis.</small></span>{{ icon('chevron', 'disclosure-chevron') }}</summary>
       <form method="post" action="/shoes/{{ shoe.id }}/details" class="form-grid">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
         <label>ID buta<input type="text" name="internal_id" value="{{ form_value('internal_id', shoe.internal_id) }}" maxlength="100" required /><small>Folder docelowy zdjęć zależy od tego identyfikatora.</small></label>
         <label>Nazwa<input type="text" name="name" value="{{ form_value('name', shoe.name) }}" maxlength="255" required /></label>
         <label class="full">Opis<textarea name="description" rows="5" maxlength="10000" placeholder="Stan i dodatkowe informacje…">{{ form_value('description', shoe.description or '') }}</textarea></label>
@@ -53,7 +56,8 @@
     </details>
     <details class="card form-disclosure product-more" id="product-more">
       <summary><span class="section-icon">{{ icon('more') }}</span><span><strong>Więcej działań</strong><small>Informacje techniczne i usuwanie.</small></span>{{ icon('chevron', 'disclosure-chevron') }}</summary>
-      <div class="danger-zone"><p class="field-help">ID rekordu: {{ shoe.id }} · Utworzono: {{ shoe.created_at.strftime('%Y-%m-%d') if shoe.created_at else '—' }}</p><p>Usunięcie produktu z bazy jest nieodwracalne. Pliki zdjęć pozostaną na dysku.</p><form method="post" action="/shoes/{{ shoe.id }}/delete" data-confirm="Usunąć but {{ shoe.internal_id }} ({{ shoe.name }})? Tej operacji nie da się cofnąć."><button type="submit" class="btn-danger">{{ icon('delete') }} Usuń buta</button></form></div>
+      <div class="danger-zone"><p class="field-help">ID rekordu: {{ shoe.id }} · Utworzono: {{ shoe.created_at.strftime('%Y-%m-%d') if shoe.created_at else '—' }}</p><p>Usunięcie produktu z bazy jest nieodwracalne. Pliki zdjęć pozostaną na dysku.</p><form method="post" action="/shoes/{{ shoe.id }}/delete" data-confirm="Usunąć but {{ shoe.internal_id }} ({{ shoe.name }})? Tej operacji nie da się cofnąć.">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" /><button type="submit" class="btn-danger">{{ icon('delete') }} Usuń buta</button></form></div>
     </details>
   </div>
 
@@ -66,16 +70,19 @@
       <details class="inline-disclosure" id="sale-edit" {% if g.form_errors and request.path.endswith('/sale') %}open{% endif %}>
         <summary>{{ icon('edit') }} Edytuj sprzedaż {{ icon('chevron', 'disclosure-chevron') }}</summary>
         <form method="post" action="/shoes/{{ shoe.id }}/sale" class="stack-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
           <label>Cena sprzedaży (zł)<input type="text" inputmode="decimal" name="sale_price" value="{{ form_value('sale_price', '%.2f'|format(shoe.sale_price or 0)) }}" required /></label>
           <label>Data sprzedaży<input type="{{ 'text' if g.form_errors and g.form_errors.get('sale_date') else 'date' }}" name="sale_date" value="{{ form_value('sale_date', shoe.sale_date) }}" required /></label>
           <button type="submit" class="btn-primary">Zapisz dane sprzedaży</button>
         </form>
       </details>
-      <form method="post" action="/shoes/{{ shoe.id }}/toggle-status" class="restore-sale-form" data-confirm="Przywrócić dostępność produktu {{ shoe.internal_id }}? Dotychczasowa cena i data sprzedaży zostaną usunięte." data-confirm-action="Przywróć dostępność"><button type="submit" class="btn-outlined">Przywróć dostępność</button></form>
+      <form method="post" action="/shoes/{{ shoe.id }}/toggle-status" class="restore-sale-form" data-confirm="Przywrócić dostępność produktu {{ shoe.internal_id }}? Dotychczasowa cena i data sprzedaży zostaną usunięte." data-confirm-action="Przywróć dostępność">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" /><button type="submit" class="btn-outlined">Przywróć dostępność</button></form>
       <p class="field-help">Przywrócenie dostępności usuwa dane sprzedaży tej pary.</p>
       {% else %}
       <p class="section-description">Wpisz cenę, sprawdź datę i zapisz sprzedaż.</p>
       <form method="post" action="/shoes/{{ shoe.id }}/toggle-status" class="stack-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
         <label>Cena sprzedaży (zł)<input type="text" inputmode="decimal" name="sale_price" value="{{ form_value('sale_price') }}" placeholder="np. 149,00" required /></label>
         <label>Data sprzedaży<input type="{{ 'text' if g.form_errors and g.form_errors.get('sale_date') else 'date' }}" name="sale_date" value="{{ form_value('sale_date', default_sale_date) }}" required /></label>
         <button type="submit" class="btn-primary">{{ icon('check') }} Oznacz jako sprzedane</button>

@@ -27,7 +27,7 @@ class FoundationTests(unittest.TestCase):
         self.client = self.app.test_client()
 
     def make_app(self, root):
-        app = create_app({"TESTING": True, "DATA_ROOT": root})
+        app = create_app({"TESTING": True, "DATA_ROOT": root, "AUTH_DISABLED": True, "WTF_CSRF_ENABLED": False})
         self.addCleanup(app.extensions["inventory_db"]["engine"].dispose)
         return app
 

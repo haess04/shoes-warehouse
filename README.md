@@ -70,8 +70,8 @@ Trzecia partia zamyka podstawowy redesign:
 - strony błędów zawierają instrukcję powrotu i nie zachęcają do ponawiania zapisu
   bez sprawdzenia aktualnego stanu.
 
-Dialog potwierdzenia nie zastępuje autoryzacji ani CSRF. Logowanie i backup
-pozostają kolejnymi partiami technicznymi. Interfejs zakłada współczesną przeglądarkę
+Dialog potwierdzenia nie zastępuje autoryzacji ani CSRF. Logowanie i CSRF są już
+wdrożone, a backup pozostaje kolejną partią. Interfejs zakłada współczesną przeglądarkę
 obsługującą natywne dialogi HTML (aktualny Chrome, Edge, Firefox lub Safari).
 
 Po testach na rzeczywistych ekranach dopracowano czytelność: tło jest ciemniejsze,
@@ -148,17 +148,62 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
-3. Uruchom aplikację:
+3. Przy pierwszym uruchomieniu utwórz konto właściciela lokalnie w terminalu:
+
+```powershell
+python -m flask --app app:create_app init-owner
+```
+
+Podaj hasło dwukrotnie (minimum 12 znaków). Znaki nie będą wyświetlane podczas
+wpisywania. Nie przekazuj hasła jako argumentu polecenia ani nie zapisuj go w repozytorium.
+Polecenie nie nadpisuje istniejącego konta i nie usuwa danych magazynu.
+
+4. Uruchom aplikację:
 
 ```powershell
 python -m app.main
 ```
 
-4. Otwórz w przeglądarce:
+5. Otwórz w przeglądarce i zaloguj się ustawionym hasłem:
 
 ```text
 http://localhost:5000
 ```
+
+### Logowanie i ochrona — partia 3
+
+- Nie ma domyślnego hasła ani rejestracji w przeglądarce. Bez utworzonego konta
+  magazyn pozostaje zamknięty, a ekran logowania wyświetla instrukcję konfiguracji.
+- Konto ma jedno hasło właściciela, zapisane jako skrót scrypt z losową solą.
+- Zwykła sesja trwa maksymalnie 12 godzin. „Zapamiętaj to urządzenie” tworzy trwałe
+  ciasteczko na maksymalnie 30 dni. W obu przypadkach termin sprawdza też serwer.
+  Przywracanie sesji przez samą przeglądarkę zależy od jej ustawień.
+- Wylogowanie unieważnia aktualną sesję po stronie serwera. Zmiana hasła usuwa
+  wszystkie sesje i zapamiętane urządzenia.
+- Limit logowania: 5 prób z jednego adresu w oknie 5 minut i 30 prób łącznie
+  w tym samym oknie. Limity są trwałe, wspólne dla procesów i nie resetują się
+  przez ponowne uruchomienie. Aplikacja nie ufa nagłówkowi X-Forwarded-For.
+- Flask-WTF chroni logowanie, wylogowanie i wszystkie formularze zapisu przez CSRF.
+  Token jest związany z sesją; wygasły formularz trzeba odświeżyć przed zapisem.
+- Ochrona obejmuje strony, zdjęcia i inspektor. Publiczne są jedynie logowanie,
+  pliki interfejsu i `/health` ze statusem procesu. Prywatne odpowiedzi mają no-store.
+- Dane dostępu są oddzielone od magazynu: `.auth.sqlite3` przechowuje skrót hasła,
+  skróty losowych tokenów sesji i liczniki prób. `.session-key` podpisuje ciasteczka.
+  Oba pliki są prywatne i ignorowane przez Git, również pliki dziennika SQLite.
+- Normalne uruchomienie nie włącza debuggera. Waitress i automatyczny backup
+  pozostają osobnymi etapami.
+
+Reset zapomnianego hasła (wyłącznie lokalnie na komputerze z magazynem):
+
+```powershell
+python -m flask --app app:create_app reset-owner-password
+```
+
+Reset zachowuje produkty, sprzedaż i zdjęcia, ale wylogowuje wszystkie urządzenia
+i zeruje limit prób. Nie usuwaj bazy konta jako sposobu resetowania hasła.
+Na telefonie w tej samej zaufanej sieci użyj adresu komputera i portu 5000,
+a następnie tego samego hasła. Samo logowanie nie szyfruje HTTP — nie otwieraj
+portu routera i nie używaj aplikacji w niezaufanej sieci bez szyfrowanego połączenia.
 
 ### Konfiguracja i testy — partia 1
 
@@ -185,8 +230,8 @@ oddzielnego `DATA_ROOT`. Nie wymagają instalowania dodatkowych zależności:
 python -m unittest discover -s tests -v
 ```
 
-Ta partia nie wprowadza jeszcze logowania, automatycznych kopii ani produkcyjnego
-serwera. Aplikacja nadal jest przeznaczona wyłącznie do zaufanej sieci lokalnej.
+Partia 1 przygotowała fundament. Logowanie i CSRF opisano w partii 3 powyżej;
+automatyczny backup i produkcyjny serwer pozostają do osobnego wdrożenia.
 
 ### Walidacja i media — partia 2
 
@@ -209,8 +254,7 @@ serwera. Aplikacja nadal jest przeznaczona wyłącznie do zaufanej sieci lokalne
 Do podpisywania sesji z potwierdzeniami aplikacja tworzy lokalny plik `.session-key`
 w katalogu danych. Jest ignorowany przez Git; nie publikuj go ani nie edytuj ręcznie.
 Klucz pozostaje taki sam po restarcie. Samych danych błędnego formularza nie zapisuje
-się w ciasteczkach. Nie jest to jeszcze system logowania ani ochrona CSRF — te
-zabezpieczenia stanowią następną partię.
+się w ciasteczkach. Obecnie klucz służy również do sesji logowania i tokenów CSRF.
 
 ## Zdjęcia produktów
 
@@ -236,6 +280,7 @@ Repozytorium zostało przygotowane tak, aby nie wysyłać na GitHub prywatnych d
 - katalog `PALETY/` ze zdjęciami jest ignorowany,
 - katalog `.thumb_cache/` jest ignorowany,
 - pliki `.env` są ignorowane,
+- `.auth.sqlite3` z danymi dostępu i `.session-key` z kluczem sesji są ignorowane,
 - lokalne środowiska wirtualne są ignorowane,
 - pliki IDE i cache Pythona są ignorowane.
 
@@ -243,4 +288,8 @@ W obecnym kodzie nie ma kluczy API, tokenów ani haseł. Konfiguracja bazy wskaz
 
 ## Uwaga produkcyjna
 
-Aplikacja jest przygotowana jako lokalne narzędzie magazynowe. Przed wystawieniem jej publicznie warto dodać co najmniej logowanie, autoryzację, konfigurację przez zmienne środowiskowe oraz produkcyjny serwer WSGI.
+Aplikacja jest lokalnym narzędziem magazynowym z logowaniem i CSRF, nie gotowym
+publicznym serwisem. HTTP w LAN nie szyfruje hasła ani ciasteczek. Nie wystawiaj
+portu 5000 do Internetu, nie uruchamiaj debuggera i ogranicz Zaporę Windows do
+zaufanej sieci. Dostęp zdalny, HTTPS, produkcyjny serwer WSGI i automatyczny backup
+wymagają osobnej konfiguracji. Przy HTTPS należy włączyć SESSION_COOKIE_SECURE.

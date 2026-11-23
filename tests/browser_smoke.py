@@ -6,6 +6,7 @@ Only temporary inventory data is used. Screenshots contain synthetic fixtures.
 
 from datetime import date
 import os
+import secrets
 from pathlib import Path
 import sys
 from tempfile import TemporaryDirectory
@@ -19,6 +20,7 @@ from playwright.sync_api import sync_playwright
 from werkzeug.serving import make_server, WSGIRequestHandler
 
 from app import create_app
+from app.auth import set_owner_password
 from app.database import get_session
 from app.models import Pallet, Shoe, ShoePhoto
 
@@ -33,7 +35,10 @@ class BrowserSmokeTests(unittest.TestCase):
     def setUpClass(cls):
         cls.temp = TemporaryDirectory()
         cls.addClassCleanup(cls.temp.cleanup)
-        cls.app = create_app({"TESTING": True, "DATA_ROOT": Path(cls.temp.name)})
+        cls.app = create_app({"TESTING": True, "DATA_ROOT": Path(cls.temp.name), "LOGIN_RATE_LIMIT": 500, "LOGIN_GLOBAL_RATE_LIMIT": 1000})
+        cls.password = secrets.token_urlsafe(24)
+        with cls.app.app_context():
+            set_owner_password(cls.password, initialize=True)
         cls.addClassCleanup(cls.app.extensions["inventory_db"]["engine"].dispose)
         folder = cls.app.config["PHOTOS_ROOT"] / "BOX_A" / "A001"
         folder.mkdir(parents=True)
@@ -81,6 +86,14 @@ class BrowserSmokeTests(unittest.TestCase):
         self.addCleanup(self.page.close)
         self.errors = []
         self.page.on("pageerror", lambda error: self.errors.append(str(error)))
+        self.login_page(self.page)
+
+    @classmethod
+    def login_page(cls, page):
+        page.goto(cls.url + '/login')
+        page.get_by_label('Hasło właściciela', exact=True).fill(cls.password)
+        page.get_by_role('button', name='Zaloguj się', exact=True).click()
+        page.wait_for_url(cls.url + '/')
 
     def test_pages_fit_mobile_tablet_and_desktop(self):
         for width in (320, 390, 768, 1440, 1920, 2560):
@@ -146,6 +159,7 @@ class BrowserSmokeTests(unittest.TestCase):
     def test_native_product_form_works_without_javascript(self):
         page = self.browser.new_page(java_script_enabled=False)
         self.addCleanup(page.close)
+        self.login_page(page)
         page.goto(f"{self.url}/pallets/{self.pid}")
         page.locator("#new-shoe summary").click()
         page.locator('[name="internal_id"]').fill("A001")
@@ -184,6 +198,44 @@ class BrowserSmokeTests(unittest.TestCase):
         self.assertEqual(self.page.locator('.sale-panel [name="sale_price"]').input_value(), "abc")
         self.assertFalse(self.page.locator("#product-edit").evaluate("el => el.open"))
         self.assertEqual(self.errors, [])
+
+    def test_login_logout_and_private_photo(self):
+        self.page.get_by_role('button', name='Wyloguj się', exact=True).click()
+        self.page.wait_for_url(self.url + '/login')
+        self.assertEqual(self.page.goto(self.url + '/media/PALETY/BOX_A/A001/1.jpg').status, 401)
+        self.page.goto(self.url + '/db-inspector')
+        self.assertTrue(self.page.url.startswith(self.url + '/login?next='), self.page.url)
+        self.page.get_by_label('Hasło właściciela', exact=True).fill(self.password)
+        self.page.get_by_role('button', name='Zaloguj się', exact=True).click()
+        self.page.wait_for_url(self.url + '/db-inspector')
+        self.assertIn('Inspektor danych', self.page.locator('h1').inner_text())
+        self.assertEqual(self.errors, [])
+
+    def test_login_screen_responsive_and_bad_password_not_echoed(self):
+        page = self.browser.new_page()
+        self.addCleanup(page.close)
+        output = Path(os.environ.get('UI_SCREENSHOT_DIR', '.ui-artifacts'))
+        output.mkdir(parents=True, exist_ok=True)
+        for width in (320, 390, 1440):
+            page.set_viewport_size({'width': width, 'height': 900})
+            page.goto(self.url + '/login')
+            self.assertFalse(page.evaluate('document.documentElement.scrollWidth > innerWidth + 1'))
+            self.assertEqual(page.get_by_role('link', name='Inspektor', exact=True).count(), 0)
+            page.screenshot(path=str(output / f'login-{width}.png'), full_page=True)
+        page.get_by_label('Hasło właściciela', exact=True).fill('wrong-test-password')
+        page.get_by_role('button', name='Zaloguj się', exact=True).click()
+        page.get_by_role('alert').wait_for()
+        self.assertEqual(page.get_by_label('Hasło właściciela', exact=True).input_value(), '')
+        self.assertIn('Nieprawidłowe hasło', page.get_by_role('alert').inner_text())
+
+    def test_browser_write_without_csrf_is_rejected(self):
+        status = self.page.evaluate("""async () => (await fetch('/pallets', {
+            method: 'POST', headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+            body: 'code=SHOULD_NOT_EXIST&delivery_date=2026-01-01&purchase_gross=1'
+        })).status""")
+        self.assertEqual(status, 400)
+        with self.app.app_context(), get_session() as db:
+            self.assertIsNone(db.query(Pallet).filter_by(code='SHOULD_NOT_EXIST').first())
 
     def test_lightbox_keyboard_and_focus_restoration(self):
         self.page.goto(f"{self.url}/shoes/{self.sid}")
@@ -368,6 +420,7 @@ class BrowserSmokeTests(unittest.TestCase):
     def test_destructive_buttons_hidden_without_javascript(self):
         page = self.browser.new_page(java_script_enabled=False)
         self.addCleanup(page.close)
+        self.login_page(page)
         page.goto(self.url)
         self.assertFalse(page.locator('form[data-confirm] button').first.is_visible())
         self.assertIn("włączonego JavaScriptu", page.locator('noscript').inner_text())

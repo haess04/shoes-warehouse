@@ -1,5 +1,30 @@
 # Magazynier — notatka techniczna
 
+## Aktualizacja: konto właściciela, sesje i CSRF
+
+- `app/auth.py` rejestruje osobny Blueprint, lokalne polecenia init-owner oraz
+  reset-owner-password i kontrolę dostępu przed ochroną CSRF.
+- Dane uwierzytelniania są w oddzielnym `.auth.sqlite3`, bez migracji tabel magazynu.
+  Hasło ma skrót scrypt z Werkzeug. Losowy token sesji trafia do podpisanego
+  ciasteczka Flask; baza przechowuje tylko SHA-256 tokenu i termin ważności.
+- Każde prywatne żądanie sprawdza sesję w bazie. Wylogowanie usuwa bieżący token;
+  reset hasła usuwa wszystkie tokeny. Ponowne użycie starego ciasteczka nie loguje.
+- Ogranicznik logowania rezerwuje próbę w transakcji BEGIN IMMEDIATE przed
+  weryfikacją hasła. Liczniki IP i globalny są współdzielone i trwałe. Liczą się
+  również poprawne próby. Nie ufamy nagłówkom proxy bez jawnej konfiguracji.
+- Flask-WTF CSRFProtect obejmuje wszystkie operacje POST, również logowanie
+  i wylogowanie. Szablony mają jawne ukryte pola csrf_token. Formularz dialogu
+  z method=dialog nie wysyła żądania HTTP i nie wymaga tego pola.
+- Normalny start ma debug=False. Prywatne odpowiedzi mają no-store, a wszystkie
+  odpowiedzi nosniff, X-Frame-Options DENY i Referrer-Policy same-origin.
+- Starsze testy modułowe jawnie wyłączają auth i CSRF tylko na tymczasowych danych.
+  Nowy zestaw test_auth.py oraz testy Edge działają z rzeczywistą ochroną. Próba
+  wyłączenia auth lub CSRF w zwykłej konfiguracji jest odrzucana.
+- Brak konta blokuje magazyn; nie ma publicznej rejestracji ani domyślnego hasła.
+  CLI tworzy i resetuje konto z ukrytym, dwukrotnym wprowadzeniem hasła.
+- Zwykłe HTTP nie szyfruje transportu: nadal używamy wyłącznie zaufanego LAN.
+  Backup oraz serwer Waitress pozostają kolejnymi etapami, nie częścią tej zmiany.
+
 ## Korekta: kontrast, szerokie ekrany i duże zdjęcia
 
 - Powierzchnie mają wyraźniejsze poziomy i obramowania, a limit kontenera wynosi
@@ -29,7 +54,7 @@
 - Testy Playwright sprawdzają akceptację i anulowanie z kontrolą liczby POST,
   modalność, rozmiary dialogów, pojedyncze i wielokrotne zdjęcia, błąd obrazu,
   ponowienie, symulowany gest oraz filtrowanie inspektora.
-- Redesign nie wprowadza logowania, autoryzacji ani CSRF — to nadal następny etap.
+- Sam redesign nie wprowadzał logowania; wdrożono je później w partii opisanej powyżej.
 
 ## Aktualizacja: Material 3 — druga partia wizualna
 
@@ -100,7 +125,7 @@
   po wyjątku. Silniki dwóch instancji nie współdzielą konfiguracji.
 - Testy w `tests/test_foundation.py` używają tylko tymczasowych danych. Tryb
   `TESTING` nie pozwala wybrać domyślnego katalogu rzeczywistego magazynu.
-- Logowanie, CSRF i backup pozostają do kolejnych partii. Poniższy opis ogólny
+- Backup pozostaje do kolejnej partii. Poniższy opis ogólny
   miejscami pokazuje wcześniejszą organizację kodu; aktualizacje opisano powyżej.
 
 ## 1. Architektura
@@ -312,7 +337,10 @@ Jinja2 obsługuje pętle, warunki i bezpieczne wstawianie wartości. JavaScript 
 - `.env`,
 - środowiska wirtualne i cache Pythona.
 
-Kod nie zawiera kluczy API, tokenów ani haseł. Aplikacja jest jednak narzędziem lokalnym: nie ma logowania, autoryzacji ani ochrony CSRF. Nie powinna być wystawiana bezpośrednio do Internetu bez dodania tych zabezpieczeń i produkcyjnego serwera WSGI.
+Kod nie zawiera prawdziwych haseł ani kluczy użytkownika. Aplikacja ma logowanie,
+serwerowo unieważniane sesje i CSRF; prywatne dane dostępu powstają lokalnie.
+Nadal nie należy wystawiać jej bezpośrednio do Internetu: brakuje skonfigurowanego
+szyfrowania transportu, produkcyjnego serwera WSGI i automatycznych kopii.
 
 ## 12. Wzorce, których można się nauczyć
 

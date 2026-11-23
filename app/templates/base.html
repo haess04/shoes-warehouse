@@ -4,7 +4,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Magazynier</title>
+    <title>{% block title %}Magazynier{% endblock %}</title>
     <link rel="icon" type="image/svg+xml" href="/static/favicon.svg" />
     <link rel="stylesheet" href="/static/styles.css" />
     <script src="{{ url_for('static', filename='app-ui.js') }}" defer></script>
@@ -16,10 +16,13 @@
         <span class="brand-logo-wrap">{{ icon('warehouse') }}</span>
         <span class="brand-copy"><strong>Magazynier</strong><small>Twój magazyn pod kontrolą</small></span>
       </a>
+      {% if g.authenticated or (config.TESTING and config.AUTH_DISABLED) %}
       <nav class="topbar-nav" aria-label="Nawigacja główna">
         <a href="/" class="{% if request.path == '/' or request.path.startswith('/pallets') or request.path.startswith('/shoes') %}active{% endif %}">{{ icon('box') }} <span>Magazyn</span></a>
         <a href="/db-inspector" class="{% if request.path == '/db-inspector' %}active{% endif %}">{{ icon('database') }} <span>Inspektor</span></a>
+        {% if g.authenticated %}<form method="post" action="{{ url_for('auth.logout') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}" /><button type="submit" class="btn-text logout-button" aria-label="Wyloguj się" title="Wyloguj się">{{ icon('back') }}<span>Wyloguj</span></button></form>{% endif %}
       </nav>
+      {% endif %}
     </header>
 
     <main class="container" id="main-content" tabindex="-1">

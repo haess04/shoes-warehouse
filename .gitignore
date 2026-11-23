@@ -19,6 +19,10 @@ ENV/
 .env.*
 !.env.example
 .session-key
+.auth.sqlite3*
+*.db-journal
+*.db-wal
+*.db-shm
 .ui-artifacts/
 
 # Local database files

@@ -9,6 +9,8 @@ def create_app(config=None):
     app = Flask(__name__, static_folder="static", template_folder="templates")
     if config is not None:
         app.config.update(config)
+    if (app.config.get("AUTH_DISABLED") or app.config.get("WTF_CSRF_ENABLED") is False) and not app.testing:
+        raise ValueError("Authentication and CSRF may only be disabled in isolated tests")
     configure_paths(app)
     configure_session(app)
 
@@ -19,6 +21,9 @@ def create_app(config=None):
     from app.validation import form_value
 
     app.jinja_env.globals["form_value"] = form_value
+    from app.auth import init_auth
+
+    init_auth(app)
 
     @app.errorhandler(404)
     def not_found(error):

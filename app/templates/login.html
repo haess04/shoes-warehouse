@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% from "components.html" import icon %}
+{% block title %}Logowanie — Magazynier{% endblock %}
+{% block content %}
+<section class="card login-card" aria-labelledby="login-title">
+  <span class="login-symbol">{{ icon('warehouse') }}</span>
+  <span class="section-kicker">Prywatny magazyn</span>
+  {% if setup_required %}
+    <h1 id="login-title">Najpierw skonfiguruj dostęp</h1>
+    <p class="muted">Konto właściciela nie zostało jeszcze utworzone. Konfigurację wykonuje się wyłącznie w terminalu na komputerze z aplikacją.</p>
+    <p class="setup-command">python -m flask --app app:create_app init-owner</p>
+    <p class="field-help">Nie ma domyślnego hasła ani rejestracji przez przeglądarkę. Po utworzeniu konta odśwież tę stronę.</p>
+    <a class="btn-tonal" href="{{ url_for('auth.login') }}">Odśwież logowanie</a>
+  {% else %}
+    <h1 id="login-title">Witaj w Magazynierze</h1>
+    <p class="muted">Wpisz hasło właściciela, aby otworzyć magazyn.</p>
+    {% if error %}<div class="notice notice-error" role="alert">{{ error }}</div>{% endif %}
+    <form method="post" action="{{ url_for('auth.login') }}" class="stack-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+      <input type="hidden" name="next" value="{{ next_url }}" />
+      <label for="owner-password">Hasło właściciela<input type="password" id="owner-password" name="password" autocomplete="current-password" maxlength="256" required autofocus /></label>
+      <label class="remember-option"><input type="checkbox" name="remember" value="yes" /> <span>Zapamiętaj to urządzenie na 30 dni</span></label>
+      <button type="submit" class="btn-primary">Zaloguj się</button>
+    </form>
+    <p class="field-help">Zwykła sesja wygasa najpóźniej po 12 godzinach. Opcja zapamiętania jest przeznaczona wyłącznie dla Twoich zaufanych urządzeń. Reset hasła wykonasz lokalnie z terminala.</p>
+    <p class="login-network-note">Korzystaj wyłącznie z zaufanej sieci. Zwykłe HTTP w sieci lokalnej nie szyfruje przesyłanego hasła.</p>
+  {% endif %}
+</section>
+{% endblock %}

@@ -7,7 +7,7 @@
       event.preventDefault();
       panel.open = true;
       panel.scrollIntoView({ block: 'nearest' });
-      panel.querySelector('input, textarea, select')?.focus({ preventScroll: true });
+      panel.querySelector('input:not([type="hidden"]), textarea, select')?.focus({ preventScroll: true });
     });
   });
 

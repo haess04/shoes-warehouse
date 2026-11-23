@@ -25,7 +25,7 @@ class MaterialUITests(unittest.TestCase):
     def setUp(self):
         self.temp = TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
-        self.app = create_app({"TESTING": True, "DATA_ROOT": self.temp.name})
+        self.app = create_app({"TESTING": True, "DATA_ROOT": self.temp.name, "AUTH_DISABLED": True, "WTF_CSRF_ENABLED": False})
         self.addCleanup(self.app.extensions["inventory_db"]["engine"].dispose)
         self.client = self.app.test_client()
 

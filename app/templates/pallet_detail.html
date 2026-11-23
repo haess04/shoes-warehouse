@@ -21,6 +21,7 @@
     <details class="inline-disclosure" id="pallet-notes" {% if g.form_errors and request.path.endswith('/notes') %}open{% endif %}>
       <summary>{{ icon('edit') }} Edytuj notatki {{ icon('chevron', 'disclosure-chevron') }}</summary>
       <form method="post" action="/pallets/{{ pallet.id }}/notes" class="form-grid">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
         <label class="full">Notatki<textarea name="notes" rows="4" maxlength="10000" placeholder="Co warto wiedzieć o tej palecie?">{{ form_value('notes', pallet.notes or '') }}</textarea></label>
         <div class="form-actions full"><button type="submit" class="btn-primary">Zapisz notatki</button><button type="button" class="btn-text" data-close-form="pallet-notes">Anuluj</button></div>
       </form>
@@ -29,6 +30,7 @@
   <details class="card form-disclosure cost-disclosure" id="pallet-cost" {% if g.form_errors and request.path.endswith('/price') %}open{% endif %}>
     <summary><span class="section-icon">{{ icon('wallet') }}</span><span><strong>Koszt zakupu</strong><small>{{ '%.2f'|format(pallet.purchase_gross) }} zł · edytuj kwotę</small></span>{{ icon('chevron', 'disclosure-chevron') }}</summary>
     <form method="post" action="/pallets/{{ pallet.id }}/price" class="form-grid">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
       <label class="full">Koszt brutto (zł)<input type="text" inputmode="decimal" name="purchase_gross" value="{{ form_value('purchase_gross', '%.2f'|format(pallet.purchase_gross)) }}" required /></label>
       <div class="form-actions full"><button type="submit" class="btn-primary">Zapisz koszt</button><button type="button" class="btn-text" data-close-form="pallet-cost">Anuluj</button></div>
     </form>
@@ -38,6 +40,7 @@
 <details class="card form-disclosure" id="new-shoe" {% if g.form_errors and request.path.endswith('/shoes') %}open{% endif %}>
   <summary><span class="section-icon">{{ icon('add') }}</span><span><strong>Nowa para butów</strong><small>Identyfikator, nazwa i uwagi o produkcie.</small></span>{{ icon('chevron', 'disclosure-chevron') }}</summary>
   <form method="post" action="/pallets/{{ pallet.id }}/shoes" class="form-grid">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
     <label>ID buta<input type="text" name="internal_id" value="{{ form_value('internal_id', default_internal_id) }}" maxlength="100" placeholder="np. A001" required /><small>Podpowiadamy kolejny numer. Możesz go zmienić.</small></label>
     <label>Nazwa<input type="text" name="name" value="{{ form_value('name') }}" maxlength="255" placeholder="np. Nike Air Max, rozmiar 42" required /></label>
     <label class="full">Opis / uwagi<textarea name="description" rows="3" maxlength="10000" placeholder="Stan, uszkodzenia, dodatkowe informacje…">{{ form_value('description') }}</textarea></label>
@@ -48,7 +51,8 @@
 <section class="card" aria-labelledby="pallet-products-title">
   <div class="section-heading section-heading-spread product-section-heading">
     <div class="section-heading"><span class="section-icon">{{ icon('box') }}</span><div><h2 id="pallet-products-title">Produkty w palecie</h2><p class="section-description">Wyświetlono {{ shoes|length }} z {{ total_shoes_count }} par.</p></div></div>
-    <form method="post" action="/pallets/{{ pallet.id }}/photos/sync-all"><button type="submit" class="btn-outlined btn-small">{{ icon('sync') }} <span>Synchronizuj zdjęcia</span></button></form>
+    <form method="post" action="/pallets/{{ pallet.id }}/photos/sync-all">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" /><button type="submit" class="btn-outlined btn-small">{{ icon('sync') }} <span>Synchronizuj zdjęcia</span></button></form>
   </div>
   <form method="get" action="/pallets/{{ pallet.id }}" class="search-row product-filters">
     <label class="visually-hidden" for="pallet-search">Szukaj po ID lub nazwie</label>

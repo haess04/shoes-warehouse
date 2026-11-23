@@ -18,7 +18,7 @@ class ValidationMediaTests(unittest.TestCase):
         self.temp = TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
-        self.app = create_app({"TESTING": True, "DATA_ROOT": self.root / "data"})
+        self.app = create_app({"TESTING": True, "DATA_ROOT": self.root / "data", "AUTH_DISABLED": True, "WTF_CSRF_ENABLED": False})
         self.addCleanup(self.app.extensions["inventory_db"]["engine"].dispose)
         self.client = self.app.test_client()
         with self.app.app_context(), get_session() as session:
