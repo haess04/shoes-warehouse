@@ -451,7 +451,7 @@ class BrowserSmokeTests(unittest.TestCase):
         self.assertFalse(self.page.locator('.warehouse-sidebar').is_visible())
         self.assertTrue(self.page.locator('#inventory-dashboard').is_visible())
 
-    def test_sales_period_updates_kpis_and_ranking_not_inventory(self):
+    def test_sales_period_updates_kpis_but_not_all_time_ranking_or_inventory(self):
         with self.app.app_context(), get_session() as db:
             record = Shoe(pallet_id=self.pid, internal_id='ANALYTICS_OLD', name='Dawna sprzedaż testowa',
                           status='sold', sale_date=date.today() - timedelta(days=40), sale_price=999)
@@ -465,12 +465,14 @@ class BrowserSmokeTests(unittest.TestCase):
         self.addCleanup(cleanup)
         self.page.goto(self.url + '/?period=today#inventory-dashboard')
         self.assertEqual(self.page.locator('#period-count').inner_text(), '1')
-        self.assertEqual(self.page.locator('.top-sales-list').get_by_text('ANALYTICS_OLD', exact=False).count(), 0)
+        self.assertIn('ANALYTICS_OLD', self.page.locator('.top-sales-list').inner_text())
+        ranking = self.page.locator('.top-sales-list').inner_text()
         inventory = self.page.locator('.inventory-summary').inner_text()
         self.page.get_by_role('link', name='Całość', exact=True).click()
         self.page.wait_for_url('**/?period=all**')
         self.assertEqual(self.page.locator('#period-count').inner_text(), '2')
         self.assertIn('ANALYTICS_OLD', self.page.locator('.top-sales-list').inner_text())
+        self.assertEqual(self.page.locator('.top-sales-list').inner_text(), ranking)
         self.assertEqual(self.page.locator('.inventory-summary').inner_text(), inventory)
         self.assertEqual(self.errors, [])
 
@@ -485,6 +487,39 @@ class BrowserSmokeTests(unittest.TestCase):
         self.page.wait_for_load_state('load')
         self.assertEqual(self.page.locator('.sales-summary').get_attribute('data-period'), 'all')
         self.assertEqual(self.errors, [])
+
+    def test_chart_point_details_and_accessible_table(self):
+        self.page.goto(self.url + '/?period=week#inventory-dashboard')
+        self.assertEqual(self.page.locator('[data-chart-point]').count(), 7)
+        self.page.locator('[data-chart-point]').last.click()
+        self.assertIn('125.50 zł', self.page.locator('[data-chart-output]').inner_text())
+        self.page.locator('[data-chart-point]').first.focus()
+        self.assertIn('0.00 zł', self.page.locator('[data-chart-output]').inner_text())
+        self.page.locator('.chart-table-details > summary').click()
+        self.assertEqual(self.page.locator('.chart-data-wrap tbody tr').count(), 7)
+        self.assertFalse(self.page.get_by_text('Najstarsze niesprzedane buty', exact=True).count())
+        self.assertFalse(self.page.get_by_text('Palety wymagające uwagi', exact=True).count())
+        self.assertEqual(self.errors, [])
+
+    def test_chart_scroll_stays_inside_mobile_page(self):
+        self.page.set_viewport_size({'width': 390, 'height': 900})
+        self.page.goto(self.url + '/?period=month#inventory-dashboard')
+        scroll = self.page.locator('.chart-scroll')
+        self.assertTrue(scroll.evaluate('el => el.scrollWidth > el.clientWidth'))
+        self.page.wait_for_function("document.querySelector('.chart-scroll').scrollLeft > 0")
+        scroll.evaluate('el => el.scrollLeft = el.scrollWidth')
+        self.assertGreater(scroll.evaluate('el => el.scrollLeft'), 0)
+        self.assertFalse(self.page.evaluate('document.documentElement.scrollWidth > innerWidth + 1'))
+        self.assertEqual(self.errors, [])
+
+    def test_chart_table_works_without_javascript(self):
+        page = self.browser.new_page(java_script_enabled=False)
+        self.addCleanup(page.close)
+        self.login_page(page)
+        page.goto(self.url + '/?period=week#inventory-dashboard')
+        page.locator('.chart-table-details > summary').click()
+        self.assertTrue(page.locator('.chart-data-wrap').is_visible())
+        self.assertEqual(page.locator('.chart-data-wrap tbody tr').count(), 7)
 
     def test_gallery_load_error_and_retry(self):
         self.page.route("**/media/PALETY/BOX_A/A001/2.jpg", lambda route: route.fulfill(status=404, body="missing"))

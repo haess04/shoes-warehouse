@@ -59,6 +59,24 @@
     });
   });
 
+  document.querySelectorAll('[data-sales-chart]').forEach((chart) => {
+    const output = chart.querySelector('[data-chart-output]');
+    if (!output) return;
+    const points = Array.from(chart.querySelectorAll('[data-chart-point]'));
+    const showPoint = (point) => {
+      output.textContent = point.dataset.chartDetail;
+      points.forEach(item => item.toggleAttribute('data-active', item === point));
+    };
+    points.forEach((point) => {
+      point.addEventListener('pointerenter', () => showPoint(point));
+      point.addEventListener('focus', () => showPoint(point));
+      point.addEventListener('click', () => showPoint(point));
+    });
+    // On a narrow screen, start at the latest dates instead of old zero days.
+    const scroll = chart.querySelector('.chart-scroll');
+    if (scroll) requestAnimationFrame(() => { scroll.scrollLeft = scroll.scrollWidth; });
+  });
+
   document.querySelectorAll('[data-open-form]').forEach((trigger) => {
     trigger.addEventListener('click', (event) => {
       const panel = document.getElementById(trigger.dataset.openForm);

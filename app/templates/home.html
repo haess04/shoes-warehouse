@@ -234,9 +234,10 @@
       <div class="dashboard-card-head">
         <div>
           <span class="dashboard-kicker">Ranking sprzedaży</span>
-          <h3>Top 10 sprzedaży w okresie</h3>
+          <h3>Top 10 najdroższych sprzedaży</h3>
+          <p class="section-description">Cała zapisana historia — niezależnie od okresu powyżej.</p>
         </div>
-        <span class="dashboard-chip">{{ analytics.period.label }}</span>
+        <span class="dashboard-chip">Cała historia</span>
       </div>
       {% if top_sold_shoes %}
       <div class="top-sales-list">
@@ -244,7 +245,7 @@
         <a class="top-sale-row" href="/shoes/{{ shoe.id }}">
           <span class="top-sale-position {% if loop.index <= 3 %}top-sale-position-podium{% endif %}">{{ loop.index }}</span>
           {% if dashboard_first_photo_by_shoe.get(shoe.id) %}
-            <img class="top-sale-image" src="/media/{{ dashboard_first_photo_by_shoe[shoe.id].file_path }}" alt="{{ shoe.internal_id }}" loading="lazy" />
+            <img class="top-sale-image" src="{{ url_for('inventory.media_file', rel_path=dashboard_first_photo_by_shoe[shoe.id].file_path) }}" alt="{{ shoe.internal_id }}" loading="lazy" />
           {% else %}
             <span class="top-sale-image top-sale-image-empty">{{ icon('image') }}</span>
           {% endif %}
@@ -253,29 +254,16 @@
             <small>{{ shoe.pallet.code }}</small>
           </span>
           <span class="top-sale-date">{{ shoe.sale_date or "—" }}</span>
-          <strong class="top-sale-price">{{ "%.2f"|format(shoe.sale_price) }} zł</strong>
+          <strong class="top-sale-price">{{ '%.2f'|format(analytics.top_prices[shoe.id]) }} zł</strong>
         </a>
         {% endfor %}
       </div>
       {% else %}
-      <div class="dashboard-empty">{{ icon('chart') }}<strong>Brak sprzedaży z ceną w tym okresie</strong><span>Zmień zakres, aby zobaczyć inne zapisane sprzedaże.</span></div>
+      <div class="dashboard-empty">{{ icon('chart') }}<strong>Brak sprzedaży z zapisaną ceną</strong><span>Ranking pojawi się po zapisaniu pierwszej sprzedaży z poprawną ceną.</span></div>
       {% endif %}
     </article>
 
     <div class="dashboard-side-stack">
-      <article class="dashboard-card">
-        <div class="dashboard-card-head">
-          <div>
-            <span class="dashboard-kicker">Ceny sprzedaży</span>
-            <h3>Zakres cen · {{ analytics.period.label }}</h3>
-          </div>
-        </div>
-        <div class="price-stat-grid">
-          <div><span>Najwyższa</span><strong>{% if analytics.current.maximum is not none %}{{ '%.2f'|format(analytics.current.maximum) }} zł{% else %}—{% endif %}</strong></div>
-          <div><span>Najniższa</span><strong>{% if analytics.current.minimum is not none %}{{ '%.2f'|format(analytics.current.minimum) }} zł{% else %}—{% endif %}</strong></div>
-        </div>
-      </article>
-
       <article class="dashboard-card financial-card {% if inventory_summary.financial_surplus >= 0 %}financial-positive{% else %}financial-negative{% endif %}">
         <span class="dashboard-kicker">Cała historia · względem kosztu zakupu</span>
         <h3>{% if inventory_summary.financial_surplus >= 0 %}Nadwyżka sprzedaży{% else %}Pozostało do zwrotu{% endif %}</h3>
@@ -285,57 +273,6 @@
     </div>
   </div>
 
-  <div class="dashboard-grid dashboard-grid-secondary">
-    <article class="dashboard-card">
-      <div class="dashboard-card-head">
-        <div>
-          <span class="dashboard-kicker">Zalegający towar</span>
-          <h3>Najstarsze niesprzedane buty</h3>
-        </div>
-        <span class="dashboard-chip">top 10</span>
-      </div>
-      {% if oldest_available_shoes %}
-      <div class="compact-list">
-        {% for item in oldest_available_shoes %}
-        <a href="/shoes/{{ item.shoe.id }}" class="compact-row">
-          <span class="compact-main">
-            <strong>{{ item.shoe.internal_id }} · {{ item.shoe.name }}</strong>
-            <small>{{ item.shoe.pallet.code }}</small>
-          </span>
-          <span class="age-badge">{{ item.days_in_inventory }} dni</span>
-        </a>
-        {% endfor %}
-      </div>
-      {% else %}
-      <div class="dashboard-empty">Brak dostępnych butów — cały magazyn sprzedany.</div>
-      {% endif %}
-    </article>
-
-    <article class="dashboard-card attention-card">
-      <div class="dashboard-card-head">
-        <div>
-          <span class="dashboard-kicker">Do sprawdzenia</span>
-          <h3>Palety wymagające uwagi</h3>
-        </div>
-        <span class="dashboard-chip dashboard-chip-warning">zwrot &lt; 50%</span>
-      </div>
-      {% if attention_pallets %}
-      <div class="compact-list">
-        {% for item in attention_pallets %}
-        <a href="/pallets/{{ item.pallet.id }}" class="compact-row attention-row">
-          <span class="compact-main">
-            <strong>{{ item.pallet.code }}</strong>
-            <small>{{ item.age_days }} dni · sprzedano {{ item.sold_count }}/{{ item.total_count }} · brakuje {{ "%.2f"|format(item.missing_to_return) }} zł</small>
-          </span>
-          <span class="attention-percent">{{ "%.1f"|format(item.return_percent) }}%</span>
-        </a>
-        {% endfor %}
-      </div>
-      {% else %}
-      <div class="dashboard-empty dashboard-empty-success">Brak starszych palet ze zwrotem poniżej 50%.</div>
-      {% endif %}
-    </article>
-  </div>
 </section>
 
 {% endblock %}

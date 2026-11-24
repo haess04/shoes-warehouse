@@ -21,6 +21,7 @@
   {% elif analytics.period.key == 'today' %}<p class="analytics-note">Widok dnia bez porównania dzień do dnia — sprzedaże mogą być uzupełniane zbiorczo. Do porównań wybierz 7 dni lub miesiąc.</p>
   {% else %}<p class="analytics-note">Całość nie ma poprzedniego okresu do porównania.</p>{% endif %}
   <p class="analytics-note">Dane według daty sprzedaży ustawionej na karcie produktu. Przy uzupełnianiu zaległości wybierz rzeczywistą datę sprzedaży.</p>
+  {% include 'sales_chart.html' %}
   {% if analytics.current.missing_prices %}<p class="analytics-warning" role="status">{{ analytics.current.missing_prices }} sprzedaży w tym zakresie nie ma poprawnej ceny. Są w liczbie par, ale nie w przychodzie, średniej, medianie ani rankingu.</p>{% endif %}
   {% if analytics.previous and analytics.previous.missing_prices %}<p class="analytics-warning">Poprzedni okres: {{ analytics.previous.missing_prices }} sprzedaży bez poprawnej ceny. Porównanie przychodu obejmuje tylko zapisane poprawne ceny.</p>{% endif %}
   {% if analytics.missing_dates %}<p class="analytics-warning">{{ analytics.missing_dates }} sprzedaży bez daty: {% if analytics.period.key == 'all' %}uwzględniono w Całości.{% else %}pominięto w tym zakresie; są dostępne w Całości.{% endif %}</p>{% endif %}

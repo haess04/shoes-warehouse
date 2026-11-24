@@ -211,35 +211,6 @@ def home():
             "current_label": f"{polish_months[today.month - 1]} {today.year}",
         }
 
-        oldest_available_shoes = []
-        for shoe in sorted(
-            available_shoes,
-            key=lambda item: item.created_at or datetime.max,
-        )[:10]:
-            created_date = shoe.created_at.date() if shoe.created_at else today
-            oldest_available_shoes.append({
-                "shoe": shoe,
-                "days_in_inventory": max((today - created_date).days, 0),
-            })
-
-        attention_pallets = []
-        for pallet in pallets:
-            return_data = pallet_returns[pallet.id]
-            age_days = max((today - pallet.delivery_date).days, 0)
-            if return_data["return_percent"] < 50.0 and age_days >= 30 and return_data["total_count"] > 0:
-                attention_pallets.append({
-                    "pallet": pallet,
-                    "age_days": age_days,
-                    "return_percent": return_data["return_percent"],
-                    "sold_count": return_data["sold_count"],
-                    "total_count": return_data["total_count"],
-                    "missing_to_return": max(
-                        float(pallet.purchase_gross or 0.0) - return_data["sold_value"], 0.0
-                    ),
-                })
-        attention_pallets.sort(key=lambda item: (item["return_percent"], -item["age_days"]))
-        attention_pallets = attention_pallets[:8]
-
         dashboard_shoe_ids = [shoe.id for shoe in top_sold_shoes]
         dashboard_photos = (
             session.query(ShoePhoto)
@@ -303,8 +274,6 @@ def home():
         top_sold_shoes=top_sold_shoes,
         dashboard_first_photo_by_shoe=dashboard_first_photo_by_shoe,
         monthly_statistics=monthly_statistics,
-        oldest_available_shoes=oldest_available_shoes,
-        attention_pallets=attention_pallets,
     )
 
 

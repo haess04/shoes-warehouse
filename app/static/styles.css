@@ -275,6 +275,30 @@ td a:hover { color: var(--primary); }
 .inventory-summary { margin-top: 32px; }
 .inventory-summary-heading { display: flex; justify-content: space-between; flex-wrap: wrap; align-items: center; gap: 16px; margin-bottom: 20px; }
 .inventory-summary-heading h3 { margin: 0; font-size: 22px; }
+.sales-chart { border-top: 1px solid var(--outline-variant); margin-top: 24px; padding-top: 24px; }
+.chart-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+.chart-heading h4 { font-size: 20px; font-weight: 500; margin: 0; }
+.chart-extremes { display: flex; flex-wrap: wrap; gap: 12px 32px; margin: 20px 0; }
+.chart-extremes > div { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.chart-extremes dt { color: var(--on-surface-variant); font-size: 12px; }
+.chart-extremes dd { margin: 0; font-size: 14px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.chart-scale { font-size: 12px; color: var(--on-surface-variant); margin: 16px 0 8px; }
+.chart-scroll { overflow-x: auto; max-width: 100%; padding: 8px 4px; border-radius: 12px; }
+.chart-bars { display: grid; grid-template-columns: repeat(var(--point-count), minmax(48px, 1fr)); gap: 4px; min-width: calc(var(--point-count) * 52px); }
+.chart-column { display: grid; grid-template-rows: 200px auto; min-width: 0; text-align: center; gap: 10px; }
+.chart-point { display: flex; align-items: flex-end; justify-content: center; height: 100%; width: 100%; min-height: 48px; padding: 8px 4px 0; border: 0; border-bottom: 1px solid var(--outline); border-radius: 8px 8px 0 0; color: var(--on-surface); background-color: transparent; background-image: repeating-linear-gradient(to top, transparent 0, transparent calc(25% - 1px), var(--outline-variant) calc(25% - 1px), var(--outline-variant) 25%); }
+.chart-point:hover, .chart-point[data-active] { background-color: var(--surface-container-high); color: var(--on-surface); }
+.chart-point:focus-visible { outline-offset: -2px; }
+.chart-fill { display: block; width: min(100%, 44px); height: var(--bar-height); min-height: 2px; border-radius: 6px 6px 0 0; background: var(--primary); pointer-events: none; }
+.chart-fill-zero { background: var(--outline); height: 2px; }
+.chart-date { font-size: 11px; color: var(--on-surface-variant); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.chart-detail { min-height: 48px; display: flex; align-items: center; padding: 12px 16px; margin: 12px 0 0; border-radius: 12px; background: var(--surface); color: var(--on-surface); font-size: 13px; font-variant-numeric: tabular-nums; }
+.chart-table-details { margin-top: 16px; font-size: 13px; }
+.chart-table-details > summary { min-height: 48px; display: flex; align-items: center; width: fit-content; cursor: pointer; color: var(--primary); }
+.chart-data-wrap table { min-width: 480px; }
+.inventory-summary .dashboard-metrics { gap: 1px; border: 1px solid var(--outline-variant); border-radius: 20px; overflow: hidden; background: var(--outline-variant); }
+.inventory-summary .metric-card { border: 0; border-radius: 0; padding: 20px; }
+.inventory-summary .metric-icon { display: none; }
 .dashboard-heading { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin: 0 4px 24px; }
 .dashboard-heading h2 { margin: 0 0 6px; font-size: 26px; }
 .dashboard-heading p { margin: 0; color: var(--on-surface-variant); font-size: 14px; }
@@ -580,6 +604,10 @@ body.lightbox-open { overflow: hidden; }
   .inline-form input { flex: 1; }
 }
 @media (max-width: 420px) {
+  .inventory-summary .dashboard-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .inventory-summary .metric-card { display: block; padding: 16px; }
+  .inventory-summary .metric-value { font-size: 24px; }
+  .chart-column { grid-template-rows: 160px auto; }
   .sales-kpi { padding: 12px; }
   .sales-kpi > strong { font-size: 24px; }
   .sales-kpi > strong small { font-size: 14px; }

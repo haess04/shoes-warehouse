@@ -33,7 +33,7 @@ Lokalna aplikacja webowa do zarządzania magazynem butów przechowywanych w pale
 ## Analityka — część 1
 
 Panel wyników ma wspólny zakres dla przychodu, liczby sprzedanych par, średniej,
-mediany, zakresu cen i rankingu: Dziś / Ostatnie 7 dni / Ten miesiąc / Całość.
+mediany, zakresu cen i wykresu: Dziś / Ostatnie 7 dni / Ten miesiąc / Całość.
 Domyślnie wybierany jest miesiąc. Zmiana okresu nie filtruje produktów wyszukiwarki
 ani listy palet; wyszukiwanie i wybór okresu zachowują wzajemnie swoje ustawienia.
 
@@ -57,7 +57,27 @@ ani listy palet; wyszukiwanie i wybór okresu zachowują wzajemnie swoje ustawie
 Zmiana jest odczytowa, bez migracji danych. Obliczenia pieniężne używają Decimal
 z zaokrągleniem do groszy. To podsumowanie aktualnych rekordów, nie niezmienna
 historia transakcji: korekta daty, ceny lub cofnięcie statusu zmienia wyniki.
-Wykres i własne ilustracje stanowią kolejne części wdrożenia.
+### Analityka — część 2
+
+- Ranking „Top 10 najdroższych sprzedaży” obejmuje całą zapisaną historię,
+  niezależnie od okresu wybranego we wskaźnikach. Sprzedaże bez daty mogą wejść
+  do rankingu, jeśli mają poprawną cenę; nie wchodzą na oś czasu wykresu.
+- Usunięto sekcje najstarszych niesprzedanych butów i palet wymagających uwagi.
+- Wykres słupkowy pokazuje przychód według zapisanej daty sprzedaży. W zakresach
+  dziennych, tygodniowych i miesięcznych pokazuje dni, również dni bez sprzedaży.
+  W Całości pokazuje miesiące; historie dłuższe niż 36 miesięcy są agregowane
+  do najwyżej 36 grup, bez odcinania wcześniejszych danych.
+- Wskazanie słupka, dotknięcie lub fokus klawiatury pokazuje datę/zakres, przychód
+  i liczbę par. Na telefonie wykres przewija się we własnym obszarze i zaczyna
+  od najnowszych dat. Dostępna jest też natywna tabela danych bez JavaScriptu.
+- Sprzedaże bez daty są opisane poza osią czasu z ich liczbą i znaną wartością;
+  nie są sztucznie dopisywane do dzisiaj. Brak ceny nie jest ceną zero.
+- Wykres nie jest porównaniem dzień do dnia. Przy zbiorczym uzupełnianiu wpisów
+  nadal należy wskazać rzeczywistą datę sprzedaży.
+- Podsumowanie magazynu ma zwarty układ 2×2 na telefonie. Nie dodano biblioteki
+  wykresów ani zasobów z CDN; dane i podstawowy wykres są renderowane po stronie serwera.
+
+Własny znak i subtelne ilustracje pozostają kolejną częścią wdrożenia.
 
 ## Interfejs — Material 3
 

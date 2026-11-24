@@ -1,5 +1,22 @@
 # Magazynier — notatka techniczna
 
+## Aktualizacja: analityka — część 2
+
+- W odpowiedzi na potrzebę użytkownika ranking jest ponownie globalny cenowo,
+  a wybrany okres steruje wskaźnikami, zakresem cen i wykresem, nie rankingiem.
+  Usunięto backend i UI najstarszych produktów oraz palet wymagających uwagi.
+- `build_sales_chart()` grupuje dane po zapisanej sale_date i uzupełnia przerwy
+  zerami. Dla Całości wylicza miesięczne lub wielomiesięczne przedziały, maksymalnie
+  36; nie obcina starszych sprzedaży. Brakujące daty mają osobną sumę poza wykresem.
+- `sales_chart.html` renderuje słupki i szczegóły jako HTML/CSS. Każdy słupek
+  ma pełną etykietę dostępności. Natywna tabela działa bez JavaScriptu;
+  app-ui.js jedynie aktualizuje tekst przy wskazaniu/dotknięciu i fokusie.
+- Kwoty agregowane są przez Decimal; wysokość wizualna jest normalizowana do
+  maksimum w wybranym zakresie. Zero ma neutralny znacznik, nie dodatni przychód.
+- Testy obejmują zgodność sum wykresu z KPI, uzgodnienie sprzedaży bez dat,
+  luki kalendarzowe, długą historię, globalny ranking i mobilne przewijanie.
+- Nie zmieniono danych, schematu bazy, uwierzytelniania ani formularzy sprzedaży.
+
 ## Aktualizacja: analityka — część 1
 
 - `app/analytics.py` wydziela obliczenia do funkcji niezależnych od Flask i bazy.
@@ -15,7 +32,8 @@
   stanem całkowitym, nie są ograniczane filtrem sprzedaży.
 - `sales_summary.html` zawiera cztery wskaźniki we wspólnej karcie i linki GET do
   okresów. Działa bez JavaScriptu. Wybór okresu jest zachowywany podczas szukania,
-  a ranking i zakres cen zawsze odpowiadają temu samemu okresowi co wskaźniki.
+  a zakres cen odpowiada temu samemu okresowi co wskaźniki. Ranking w części 2
+  został zgodnie z życzeniem użytkownika przywrócony do całej historii.
 - `tests/test_analytics.py` sprawdza granice okresów, brakujące dane, ceny zero,
   arytmetykę groszową, ranking, opóźnione wpisywanie i integrację widoku.
 - Nie zmieniono schematu bazy, danych, logowania ani reguł wyszukiwania. Wykres

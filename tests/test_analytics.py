@@ -121,13 +121,74 @@ class AnalyticsCalculationTests(unittest.TestCase):
         self.assertIsNone(data["current"]["median"])
         self.assertEqual(data["top_shoes"], [])
 
-    def test_top_ten_is_scoped_to_period_and_ties_are_stable(self):
+    def test_top_ten_is_all_time_and_ties_are_stable(self):
         today = date(2026, 11, 24)
         records = [sale(i, today, i) for i in range(1, 13)] + [sale(99, date(2025, 1, 1), 999)]
         data = build_sales_analytics(records, "today", today)
-        self.assertEqual([shoe.id for shoe in data["top_shoes"]], list(range(12, 2, -1)))
+        self.assertEqual([shoe.id for shoe in data["top_shoes"]], [99] + list(range(12, 3, -1)))
         data = build_sales_analytics([sale(1, today, 10), sale(2, today, 10)], "today", today)
         self.assertEqual([shoe.id for shoe in data["top_shoes"]], [2, 1])
+
+    def test_chart_daily_gaps_are_zero_and_totals_match(self):
+        today = date(2026, 11, 24)
+        data = build_sales_analytics([sale(1, today, 0.1), sale(2, today, 0.2), sale(3, today - timedelta(days=3), 90)], 'week', today)
+        chart = data['chart']
+        self.assertEqual(len(chart['points']), 7)
+        self.assertEqual(chart['points'][0]['revenue'], Decimal('0.00'))
+        self.assertEqual(chart['points'][-1]['revenue'], Decimal('0.30'))
+        self.assertEqual(chart['revenue'], data['current']['revenue'])
+        self.assertEqual(chart['count'], data['current']['count'])
+        self.assertEqual(chart['points'][3]['height_percent'], 100)
+
+    def test_chart_all_months_cross_year_and_include_gaps(self):
+        data = build_sales_analytics([sale(1, date(2025, 12, 20), 100), sale(2, date(2026, 2, 1), 200)], 'all', date(2026, 2, 15))
+        points = data['chart']['points']
+        self.assertEqual([p['label'] for p in points], ['12.2025', '01.2026', '02.2026'])
+        self.assertEqual([p['revenue'] for p in points], [Decimal('100.00'), Decimal('0.00'), Decimal('200.00')])
+
+    def test_long_chart_groups_without_dropping_old_history(self):
+        records = [sale(1, date(1990, 1, 1), 150), sale(2, date(2026, 11, 24), 200)]
+        chart = build_sales_analytics(records, 'all', date(2026, 11, 24))['chart']
+        self.assertLessEqual(len(chart['points']), 36)
+        self.assertEqual(chart['points'][0]['start'], date(1990, 1, 1))
+        self.assertEqual(chart['revenue'], Decimal('350.00'))
+        self.assertEqual(chart['count'], 2)
+        self.assertIn('Grupy', chart['granularity'])
+
+    def test_undated_chart_value_is_separate_and_reconciles_with_kpi(self):
+        today = date(2026, 11, 24)
+        data = build_sales_analytics([sale(1, None, 80), sale(2, today, 120)], 'all', today)
+        chart = data['chart']
+        self.assertEqual(chart['undated_count'], 1)
+        self.assertEqual(chart['undated_revenue'], Decimal('80.00'))
+        self.assertEqual(chart['revenue'] + chart['undated_revenue'], data['current']['revenue'])
+        self.assertEqual(chart['count'] + chart['undated_count'], data['current']['count'])
+
+    def test_chart_zero_and_missing_price_have_no_fake_height(self):
+        today = date(2026, 11, 24)
+        point = build_sales_analytics([sale(1, today, 0), sale(2, today, None)], 'today', today)['chart']['points'][0]
+        self.assertEqual(point['count'], 2)
+        self.assertEqual(point['missing_prices'], 1)
+        self.assertEqual(point['height_percent'], 0)
+        self.assertEqual(point['revenue'], Decimal('0.00'))
+
+    def test_chart_with_only_undated_sales_invents_no_dates(self):
+        chart = build_sales_analytics([sale(1, None, 80)], 'all', date(2026, 11, 24))['chart']
+        self.assertEqual(chart['points'], [])
+        self.assertEqual(chart['revenue'], Decimal('0.00'))
+        self.assertEqual(chart['undated_revenue'], Decimal('80.00'))
+
+    def test_empty_month_chart_has_all_days_to_today(self):
+        chart = build_sales_analytics([], 'month', date(2026, 11, 24))['chart']
+        self.assertEqual(len(chart['points']), 24)
+        self.assertTrue(all(point['height_percent'] == 0 for point in chart['points']))
+
+    def test_chart_and_ranking_have_intentionally_different_scopes(self):
+        today = date(2026, 11, 24)
+        records = [sale(1, date(2025, 1, 1), 999), sale(2, today, 50)]
+        data = build_sales_analytics(records, 'today', today)
+        self.assertEqual(data['chart']['revenue'], Decimal('50.00'))
+        self.assertEqual([shoe.id for shoe in data['top_shoes']], [1, 2])
 
 
 class AnalyticsViewTests(unittest.TestCase):
@@ -150,16 +211,29 @@ class AnalyticsViewTests(unittest.TestCase):
                 db.add(Shoe(pallet_id=pallet.id, internal_id=code, name=f"Analytics {code}", status="sold", sale_date=day, sale_price=price))
             db.commit()
 
-    def test_period_controls_metrics_and_ranking(self):
+    def test_period_controls_metrics_but_ranking_is_all_time(self):
         html = self.client.get("/?period=today").get_data(as_text=True)
         self.assertIn('data-period="today"', html)
         self.assertIn('id="period-count">1</strong>', html)
         self.assertIn('NOW - Analytics NOW', html)
-        self.assertNotIn('OLD - Analytics OLD', html)
+        self.assertIn('OLD - Analytics OLD', html)
+        self.assertIn('Top 10 najdroższych sprzedaży', html)
         html = self.client.get("/?period=all").get_data(as_text=True)
         self.assertIn('id="period-count">3</strong>', html)
         self.assertIn('OLD - Analytics OLD', html)
         self.assertIn('UNDATED - Analytics UNDATED', html)
+
+    def test_removed_attention_sections_do_not_render(self):
+        html = self.client.get('/').get_data(as_text=True)
+        self.assertNotIn('Najstarsze niesprzedane buty', html)
+        self.assertNotIn('Palety wymagające uwagi', html)
+
+    def test_chart_matches_selected_period(self):
+        html = self.client.get('/?period=week').get_data(as_text=True)
+        self.assertIn('data-chart-period="week"', html)
+        self.assertIn('Przychód w czasie', html)
+        self.assertIn('Pokaż dane wykresu w tabeli', html)
+        self.assertIn('24.11.2026: 125.00 zł', html)
 
     def test_period_links_keep_search_and_search_keeps_period(self):
         html = self.client.get("/?period=week&shoe_q=Analytics").get_data(as_text=True)
