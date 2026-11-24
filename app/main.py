@@ -1,7 +1,6 @@
 from datetime import date, datetime
 import os
 import re
-from statistics import median
 import sys
 from pathlib import Path
 
@@ -18,6 +17,7 @@ from app.database import get_session
 from app.models import Pallet, Shoe, ShoePhoto
 from app.media import IMAGE_EXTENSIONS, safe_media_path
 from app.validation import FormError, calendar_date, form_handler, identifier, money, text
+from app.analytics import PERIOD_OPTIONS, build_sales_analytics, valid_sale_price
 
 
 routes = Blueprint("inventory", __name__)
@@ -110,26 +110,8 @@ def safe_abs_from_rel(rel_path: str) -> Path | None:
     return safe_media_path(rel_path)
 
 
-def month_date_range(today: date | None = None) -> tuple[date, date]:
-    current = today or date.today()
-    start = current.replace(day=1)
-    if current.month == 12:
-        next_month_start = date(current.year + 1, 1, 1)
-    else:
-        next_month_start = date(current.year, current.month + 1, 1)
-    end = next_month_start.fromordinal(next_month_start.toordinal() - 1)
-    return start, end
-
-
 def local_today() -> date:
     return datetime.now().astimezone().date()
-
-
-def previous_month_date_range(today: date | None = None) -> tuple[date, date]:
-    current = today or local_today()
-    current_month_start = current.replace(day=1)
-    previous_month_end = current_month_start.fromordinal(current_month_start.toordinal() - 1)
-    return previous_month_end.replace(day=1), previous_month_end
 
 
 @routes.get("/health")
@@ -150,6 +132,7 @@ def media_file(rel_path: str):
 @routes.get("/")
 def home():
     shoe_q = request.args.get("shoe_q", "").strip()
+    requested_period = request.args.get("period", request.form.get("period", "month"))
 
     with get_session() as session:
         pallets = session.query(Pallet).order_by(Pallet.id.desc()).all()
@@ -194,10 +177,10 @@ def home():
         )
         sold_shoes = [shoe for shoe in all_shoes if shoe.status == "sold"]
         available_shoes = [shoe for shoe in all_shoes if shoe.status != "sold"]
-        sold_prices = [float(shoe.sale_price) for shoe in sold_shoes if shoe.sale_price is not None]
+        sold_prices = [price for shoe in sold_shoes if (price := valid_sale_price(shoe.sale_price)) is not None]
 
         total_purchase_cost = sum(float(pallet.purchase_gross or 0.0) for pallet in pallets)
-        total_sales_value = sum(sold_prices)
+        total_sales_value = float(sum(sold_prices))
         financial_surplus = total_sales_value - total_purchase_cost
         global_return_percent = (
             total_sales_value / total_purchase_cost * 100.0 if total_purchase_cost > 0 else 0.0
@@ -215,53 +198,17 @@ def home():
             "sold_share_percent": sold_share_percent,
         }
 
-        price_statistics = {
-            "average": sum(sold_prices) / len(sold_prices) if sold_prices else 0.0,
-            "median": float(median(sold_prices)) if sold_prices else 0.0,
-            "minimum": min(sold_prices) if sold_prices else 0.0,
-            "maximum": max(sold_prices) if sold_prices else 0.0,
-        }
-
-        top_sold_shoes = sorted(
-            (shoe for shoe in sold_shoes if shoe.sale_price is not None),
-            key=lambda shoe: (float(shoe.sale_price or 0.0), shoe.sale_date or date.min),
-            reverse=True,
-        )[:10]
-
         today = local_today()
-        current_month_start, current_month_end = month_date_range(today)
-        previous_month_start, previous_month_end = previous_month_date_range(today)
-
-        def sales_for_period(start: date, end: date) -> dict:
-            period_shoes = [
-                shoe for shoe in sold_shoes if shoe.sale_date and start <= shoe.sale_date <= end
-            ]
-            return {
-                "value": sum(float(shoe.sale_price or 0.0) for shoe in period_shoes),
-                "count": len(period_shoes),
-            }
-
-        current_month_sales = sales_for_period(current_month_start, current_month_end)
-        previous_month_sales = sales_for_period(previous_month_start, previous_month_end)
-        if previous_month_sales["value"] > 0:
-            monthly_change_percent = (
-                (current_month_sales["value"] - previous_month_sales["value"])
-                / previous_month_sales["value"]
-                * 100.0
-            )
-        else:
-            monthly_change_percent = None
-
+        analytics = build_sales_analytics(all_shoes, requested_period, today)
+        top_sold_shoes = analytics["top_shoes"]
+        month_summary = analytics if analytics["period"].key == "month" else build_sales_analytics(all_shoes, "month", today)
         polish_months = (
             "styczeń", "luty", "marzec", "kwiecień", "maj", "czerwiec",
             "lipiec", "sierpień", "wrzesień", "październik", "listopad", "grudzień",
         )
         monthly_statistics = {
-            "current": current_month_sales,
-            "previous": previous_month_sales,
-            "current_label": f"{polish_months[current_month_start.month - 1]} {current_month_start.year}",
-            "previous_label": f"{polish_months[previous_month_start.month - 1]} {previous_month_start.year}",
-            "change_percent": monthly_change_percent,
+            "current": {"value": month_summary["current"]["revenue"], "count": month_summary["current"]["count"]},
+            "current_label": f"{polish_months[today.month - 1]} {today.year}",
         }
 
         oldest_available_shoes = []
@@ -351,7 +298,8 @@ def home():
         first_photo_by_shoe=first_photo_by_shoe,
         pallet_returns=pallet_returns,
         inventory_summary=inventory_summary,
-        price_statistics=price_statistics,
+        analytics=analytics,
+        period_options=PERIOD_OPTIONS,
         top_sold_shoes=top_sold_shoes,
         dashboard_first_photo_by_shoe=dashboard_first_photo_by_shoe,
         monthly_statistics=monthly_statistics,

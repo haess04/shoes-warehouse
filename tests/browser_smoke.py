@@ -4,7 +4,7 @@ Requires Playwright and installed Microsoft Edge (or Playwright Chromium).
 Only temporary inventory data is used. Screenshots contain synthetic fixtures.
 """
 
-from datetime import date
+from datetime import date, timedelta
 import os
 import secrets
 from pathlib import Path
@@ -450,6 +450,41 @@ class BrowserSmokeTests(unittest.TestCase):
         self.page.set_viewport_size({'width': 390, 'height': 900})
         self.assertFalse(self.page.locator('.warehouse-sidebar').is_visible())
         self.assertTrue(self.page.locator('#inventory-dashboard').is_visible())
+
+    def test_sales_period_updates_kpis_and_ranking_not_inventory(self):
+        with self.app.app_context(), get_session() as db:
+            record = Shoe(pallet_id=self.pid, internal_id='ANALYTICS_OLD', name='Dawna sprzedaż testowa',
+                          status='sold', sale_date=date.today() - timedelta(days=40), sale_price=999)
+            db.add(record)
+            db.commit()
+            sid = record.id
+        def cleanup():
+            with self.app.app_context(), get_session() as db:
+                db.query(Shoe).filter(Shoe.id == sid).delete(synchronize_session=False)
+                db.commit()
+        self.addCleanup(cleanup)
+        self.page.goto(self.url + '/?period=today#inventory-dashboard')
+        self.assertEqual(self.page.locator('#period-count').inner_text(), '1')
+        self.assertEqual(self.page.locator('.top-sales-list').get_by_text('ANALYTICS_OLD', exact=False).count(), 0)
+        inventory = self.page.locator('.inventory-summary').inner_text()
+        self.page.get_by_role('link', name='Całość', exact=True).click()
+        self.page.wait_for_url('**/?period=all**')
+        self.assertEqual(self.page.locator('#period-count').inner_text(), '2')
+        self.assertIn('ANALYTICS_OLD', self.page.locator('.top-sales-list').inner_text())
+        self.assertEqual(self.page.locator('.inventory-summary').inner_text(), inventory)
+        self.assertEqual(self.errors, [])
+
+    def test_period_and_search_state_survive_navigation(self):
+        self.page.goto(self.url + '/?period=week&shoe_q=A001#inventory-dashboard')
+        self.assertEqual(self.page.locator('.sales-summary').get_attribute('data-period'), 'week')
+        self.page.get_by_role('link', name='Całość', exact=True).click()
+        self.page.wait_for_url('**/?period=all**')
+        self.assertEqual(self.page.locator('#global-search').input_value(), 'A001')
+        self.page.locator('#global-search').fill('A002')
+        self.page.locator('.search-card').get_by_role('button', name='Szukaj', exact=True).click()
+        self.page.wait_for_load_state('load')
+        self.assertEqual(self.page.locator('.sales-summary').get_attribute('data-period'), 'all')
+        self.assertEqual(self.errors, [])
 
     def test_gallery_load_error_and_retry(self):
         self.page.route("**/media/PALETY/BOX_A/A001/2.jpg", lambda route: route.fulfill(status=404, body="missing"))

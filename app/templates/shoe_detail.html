@@ -84,7 +84,7 @@
       <form method="post" action="/shoes/{{ shoe.id }}/toggle-status" class="stack-form">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
         <label>Cena sprzedaży (zł)<input type="text" inputmode="decimal" name="sale_price" value="{{ form_value('sale_price') }}" placeholder="np. 149,00" required /></label>
-        <label>Data sprzedaży<input type="{{ 'text' if g.form_errors and g.form_errors.get('sale_date') else 'date' }}" name="sale_date" value="{{ form_value('sale_date', default_sale_date) }}" required /></label>
+        <label>Data sprzedaży<input type="{{ 'text' if g.form_errors and g.form_errors.get('sale_date') else 'date' }}" name="sale_date" value="{{ form_value('sale_date', default_sale_date) }}" required /><small>Uzupełniasz zaległości? Wybierz rzeczywistą datę sprzedaży.</small></label>
         <button type="submit" class="btn-primary">{{ icon('check') }} Oznacz jako sprzedane</button>
       </form>
       {% endif %}

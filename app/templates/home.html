@@ -19,9 +19,10 @@
     <div><h2 id="global-search-title">Znajdź parę w całym magazynie</h2><p class="section-description">Szukaj po ID, nazwie lub kodzie palety.</p></div>
   </div>
   <form method="get" action="/" class="search-row">
+    <input type="hidden" name="period" value="{{ analytics.period.key }}" />
     <input type="search" id="global-search" name="shoe_q" value="{{ shoe_q }}" aria-label="ID buta, nazwa lub kod palety" placeholder="Np. A012, Nike, BOX_A…" />
     <button type="submit" class="btn-tonal">{{ icon('search') }} Szukaj</button>
-    {% if shoe_q %}<a class="btn-text" href="/">Wyczyść</a>{% endif %}
+    {% if shoe_q %}<a class="btn-text" href="{{ url_for('inventory.home', period=analytics.period.key) }}">Wyczyść</a>{% endif %}
   </form>
 
   {% if shoe_q %}
@@ -77,6 +78,7 @@
 <details class="card form-disclosure" id="new-pallet" {% if g.form_errors and request.path == '/pallets' %}open{% endif %}>
   <summary><span class="section-icon">{{ icon('add') }}</span><span><strong>Nowa paleta lub box</strong><small>Zarejestruj dostawę i koszt zakupu.</small></span>{{ icon('chevron', 'disclosure-chevron') }}</summary>
   <form method="post" action="/pallets" class="form-grid">
+    <input type="hidden" name="period" value="{{ analytics.period.key }}" />
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
     <label>
       Kod palety
@@ -189,12 +191,16 @@
   <div class="dashboard-heading">
     <div>
       <span class="dashboard-kicker">Panel wyników</span>
-      <h2>Statystyki magazynu</h2>
-      <p>Najważniejsze liczby, sprzedaż i pozycje wymagające uwagi.</p>
+      <h2>Panel wyników</h2>
+      <p>Sprzedaż w wybranym okresie oraz osobno bieżący stan magazynu.</p>
     </div>
-    <span class="dashboard-chip">{{ icon('chart') }} Aktualny stan magazynu</span>
+    <span class="dashboard-chip">{{ icon('chart') }} Na podstawie zapisanych danych</span>
   </div>
 
+  {% include 'sales_summary.html' %}
+
+  <section class="inventory-summary" aria-labelledby="inventory-summary-title">
+  <div class="inventory-summary-heading"><div><h3 id="inventory-summary-title">Magazyn i zwrot zakupu</h3><p class="section-description">Stan obecny i wszystkie zapisane sprzedaże — niezależnie od okresu powyżej.</p></div><span class="count-pill">Cała historia</span></div>
   <div class="dashboard-metrics">
     <article class="metric-card metric-card-sales">
       <span class="metric-icon">{{ icon('trend') }}</span>
@@ -216,20 +222,21 @@
     </article>
     <article class="metric-card metric-card-stock">
       <span class="metric-icon">{{ icon('box') }}</span>
-      <span class="metric-label">Rotacja magazynu</span>
+      <span class="metric-label">Sprzedana część magazynu</span>
       <strong class="metric-value">{{ inventory_summary.sold_shoes }}/{{ inventory_summary.total_shoes }}</strong>
       <span class="metric-detail">{{ "%.1f"|format(inventory_summary.sold_share_percent) }}% sprzedanych · {{ inventory_summary.available_shoes }} dostępnych</span>
     </article>
   </div>
+  </section>
 
   <div class="dashboard-grid dashboard-grid-primary">
     <article class="dashboard-card dashboard-card-wide">
       <div class="dashboard-card-head">
         <div>
           <span class="dashboard-kicker">Ranking sprzedaży</span>
-          <h3>Top 10 najdrożej sprzedanych butów</h3>
+          <h3>Top 10 sprzedaży w okresie</h3>
         </div>
-        <span class="dashboard-chip">rekordy cenowe</span>
+        <span class="dashboard-chip">{{ analytics.period.label }}</span>
       </div>
       {% if top_sold_shoes %}
       <div class="top-sales-list">
@@ -242,8 +249,8 @@
             <span class="top-sale-image top-sale-image-empty">{{ icon('image') }}</span>
           {% endif %}
           <span class="top-sale-info">
-            <strong>{{ shoe.name }}</strong>
-            <small>{{ shoe.internal_id }} · {{ shoe.pallet.code }}</small>
+            <strong>{{ shoe.internal_id }} - {{ shoe.name }}</strong>
+            <small>{{ shoe.pallet.code }}</small>
           </span>
           <span class="top-sale-date">{{ shoe.sale_date or "—" }}</span>
           <strong class="top-sale-price">{{ "%.2f"|format(shoe.sale_price) }} zł</strong>
@@ -251,7 +258,7 @@
         {% endfor %}
       </div>
       {% else %}
-      <div class="dashboard-empty">Brak zakończonych sprzedaży do utworzenia rankingu.</div>
+      <div class="dashboard-empty">{{ icon('chart') }}<strong>Brak sprzedaży z ceną w tym okresie</strong><span>Zmień zakres, aby zobaczyć inne zapisane sprzedaże.</span></div>
       {% endif %}
     </article>
 
@@ -260,49 +267,19 @@
         <div class="dashboard-card-head">
           <div>
             <span class="dashboard-kicker">Ceny sprzedaży</span>
-            <h3>Podsumowanie cen</h3>
+            <h3>Zakres cen · {{ analytics.period.label }}</h3>
           </div>
         </div>
         <div class="price-stat-grid">
-          <div><span>Średnia</span><strong>{{ "%.2f"|format(price_statistics.average) }} zł</strong></div>
-          <div><span>Mediana</span><strong>{{ "%.2f"|format(price_statistics.median) }} zł</strong></div>
-          <div><span>Najwyższa</span><strong>{{ "%.2f"|format(price_statistics.maximum) }} zł</strong></div>
-          <div><span>Najniższa</span><strong>{{ "%.2f"|format(price_statistics.minimum) }} zł</strong></div>
-        </div>
-      </article>
-
-      <article class="dashboard-card monthly-card">
-        <div class="dashboard-card-head">
-          <div>
-            <span class="dashboard-kicker">Sprzedaż w czasie</span>
-            <h3>Miesiąc do miesiąca</h3>
-          </div>
-          {% if monthly_statistics.change_percent is not none %}
-            <span class="trend-badge {% if monthly_statistics.change_percent >= 0 %}trend-up{% else %}trend-down{% endif %}">
-              {% if monthly_statistics.change_percent >= 0 %}↑{% else %}↓{% endif %}
-              {{ "%.1f"|format(monthly_statistics.change_percent|abs) }}%
-            </span>
-          {% endif %}
-        </div>
-        <div class="month-comparison">
-          <div class="month-current">
-            <span>{{ monthly_statistics.current_label }}</span>
-            <strong>{{ "%.2f"|format(monthly_statistics.current.value) }} zł</strong>
-            <small>{{ monthly_statistics.current.count }} sprzedanych par</small>
-          </div>
-          <div class="month-divider">vs</div>
-          <div>
-            <span>{{ monthly_statistics.previous_label }}</span>
-            <strong>{{ "%.2f"|format(monthly_statistics.previous.value) }} zł</strong>
-            <small>{{ monthly_statistics.previous.count }} sprzedanych par</small>
-          </div>
+          <div><span>Najwyższa</span><strong>{% if analytics.current.maximum is not none %}{{ '%.2f'|format(analytics.current.maximum) }} zł{% else %}—{% endif %}</strong></div>
+          <div><span>Najniższa</span><strong>{% if analytics.current.minimum is not none %}{{ '%.2f'|format(analytics.current.minimum) }} zł{% else %}—{% endif %}</strong></div>
         </div>
       </article>
 
       <article class="dashboard-card financial-card {% if inventory_summary.financial_surplus >= 0 %}financial-positive{% else %}financial-negative{% endif %}">
-        <span class="dashboard-kicker">Wynik względem kosztu zakupu</span>
+        <span class="dashboard-kicker">Cała historia · względem kosztu zakupu</span>
         <h3>{% if inventory_summary.financial_surplus >= 0 %}Nadwyżka sprzedaży{% else %}Pozostało do zwrotu{% endif %}</h3>
-        <strong class="financial-value">{{ "%+.2f"|format(inventory_summary.financial_surplus) }} zł</strong>
+        <strong class="financial-value">{% if inventory_summary.financial_surplus >= 0 %}+{% endif %}{{ '%.2f'|format(inventory_summary.financial_surplus|abs) }} zł</strong>
         <p>Przychód minus łączny koszt zakupu palet. To nie jest zysk netto — bez prowizji i innych kosztów.</p>
       </article>
     </div>

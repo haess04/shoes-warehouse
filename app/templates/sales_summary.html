@@ -1,0 +1,29 @@
+<section class="card sales-summary" aria-labelledby="sales-summary-title" data-period="{{ analytics.period.key }}">
+  <div class="section-heading section-heading-spread">
+    <div class="section-heading"><span class="section-icon">{{ icon('chart') }}</span><div><h3 id="sales-summary-title">Sprzedaż w wybranym okresie</h3><p class="section-description" id="sales-period-label">{% if analytics.period.start %}{{ analytics.period.start.strftime('%d.%m.%Y') }} – {{ analytics.period.end.strftime('%d.%m.%Y') }}{% else %}Wszystkie zapisane sprzedaże, również bez daty{% endif %}</p></div></div>
+  </div>
+  <nav class="period-switch" aria-label="Okres analizy sprzedaży">
+    {% for key, label in period_options %}
+    <a href="{{ url_for('inventory.home', period=key, shoe_q=shoe_q or none, _anchor='inventory-dashboard') }}" {% if analytics.period.key == key %}class="is-active" aria-current="true"{% endif %}>{{ label }}</a>
+    {% endfor %}
+  </nav>
+  <div class="sales-kpi-grid">
+    <div class="sales-kpi sales-kpi-primary"><span>Przychód</span><strong id="period-revenue">{{ '%.2f'|format(analytics.current.revenue) }} <small>zł</small></strong><small>Suma {{ analytics.current.priced_count }} zapisanych cen</small></div>
+    <div class="sales-kpi"><span>Sprzedane pary</span><strong id="period-count">{{ analytics.current.count }}</strong><small>Według aktualnego statusu i dat sprzedaży</small></div>
+    <div class="sales-kpi"><span>Średnia cena</span><strong id="period-average">{% if analytics.current.average is not none %}{{ '%.2f'|format(analytics.current.average) }} <small>zł</small>{% else %}—{% endif %}</strong><small>Tylko pary z poprawną ceną</small></div>
+    <div class="sales-kpi"><span>Mediana ceny</span><strong id="period-median">{% if analytics.current.median is not none %}{{ '%.2f'|format(analytics.current.median) }} <small>zł</small>{% else %}—{% endif %}</strong><small>Środkowa cena sprzedaży</small></div>
+  </div>
+  {% if analytics.comparison %}
+  <div class="sales-comparison">
+    <div><span class="section-kicker">{{ analytics.period.comparison_label }}</span><p>{{ analytics.period.previous_start.strftime('%d.%m.%Y') }} – {{ analytics.period.previous_end.strftime('%d.%m.%Y') }}</p><small>{{ '%.2f'|format(analytics.previous.revenue) }} zł · {{ analytics.previous.count }} par</small></div>
+    <div class="sales-change"><strong class="{% if analytics.comparison.revenue_delta > 0 %}change-positive{% elif analytics.comparison.revenue_delta < 0 %}change-negative{% endif %}">{{ '%+.2f'|format(analytics.comparison.revenue_delta) }} zł</strong><span>{{ '%+d'|format(analytics.comparison.count_delta) }} par względem poprzedniego okresu</span>{% if analytics.comparison.revenue_percent is not none %}<small>{{ '%+.1f'|format(analytics.comparison.revenue_percent) }}% przychodu</small>{% else %}<small>Brak podstawy do zmiany procentowej — wcześniej 0 zł.</small>{% endif %}</div>
+  </div>
+  {% elif analytics.period.key == 'today' %}<p class="analytics-note">Widok dnia bez porównania dzień do dnia — sprzedaże mogą być uzupełniane zbiorczo. Do porównań wybierz 7 dni lub miesiąc.</p>
+  {% else %}<p class="analytics-note">Całość nie ma poprzedniego okresu do porównania.</p>{% endif %}
+  <p class="analytics-note">Dane według daty sprzedaży ustawionej na karcie produktu. Przy uzupełnianiu zaległości wybierz rzeczywistą datę sprzedaży.</p>
+  {% if analytics.current.missing_prices %}<p class="analytics-warning" role="status">{{ analytics.current.missing_prices }} sprzedaży w tym zakresie nie ma poprawnej ceny. Są w liczbie par, ale nie w przychodzie, średniej, medianie ani rankingu.</p>{% endif %}
+  {% if analytics.previous and analytics.previous.missing_prices %}<p class="analytics-warning">Poprzedni okres: {{ analytics.previous.missing_prices }} sprzedaży bez poprawnej ceny. Porównanie przychodu obejmuje tylko zapisane poprawne ceny.</p>{% endif %}
+  {% if analytics.missing_dates %}<p class="analytics-warning">{{ analytics.missing_dates }} sprzedaży bez daty: {% if analytics.period.key == 'all' %}uwzględniono w Całości.{% else %}pominięto w tym zakresie; są dostępne w Całości.{% endif %}</p>{% endif %}
+  {% if analytics.future_dates %}<p class="analytics-warning">{{ analytics.future_dates }} sprzedaży ma datę w przyszłości. Są widoczne w Całości, nie w bieżących zakresach dat.</p>{% endif %}
+  <details class="analytics-explanation"><summary>Jak liczymy te wskaźniki?</summary><p>Ostatnie 7 dni obejmuje dzisiaj i 6 poprzednich dni. Ten miesiąc porównujemy z analogicznym zakresem poprzedniego miesiąca, do jego ostatniego dnia, jeśli jest krótszy. Dzisiejszy dzień i bieżący miesiąc jeszcze trwają; daty sprzedaży nie zawierają godzin.</p><p>To aktualnie zapisane sprzedaże, nie niezmienna historia transakcji. Zmiana statusu, daty lub ceny zmienia wyniki. Przychód nie jest zyskiem netto. Brak cen nie jest traktowany jak cena 0 zł.</p></details>
+</section>

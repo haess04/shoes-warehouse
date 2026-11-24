@@ -30,6 +30,35 @@ Lokalna aplikacja webowa do zarządzania magazynem butów przechowywanych w pale
 - Jinja2,
 - HTML/CSS/JavaScript.
 
+## Analityka — część 1
+
+Panel wyników ma wspólny zakres dla przychodu, liczby sprzedanych par, średniej,
+mediany, zakresu cen i rankingu: Dziś / Ostatnie 7 dni / Ten miesiąc / Całość.
+Domyślnie wybierany jest miesiąc. Zmiana okresu nie filtruje produktów wyszukiwarki
+ani listy palet; wyszukiwanie i wybór okresu zachowują wzajemnie swoje ustawienia.
+
+- Dziś to podgląd bez porównania dzień do dnia — sprzedaże bywają wpisywane zbiorczo.
+- Ostatnie 7 dni obejmuje dzisiaj i 6 poprzednich dni; porównujemy z poprzednimi
+  7 rozłącznymi dniami.
+- Ten miesiąc obejmuje pierwszy dzień miesiąca do dziś; poprzedni zakres kończy
+  się na analogicznym dniu poprzedniego miesiąca, nie później niż jego ostatni dzień.
+- Całość obejmuje wszystkie rekordy oznaczone jako sprzedane, także bez daty
+  lub z datą przyszłą; takie rekordy są wyraźnie sygnalizowane. Zakresy bieżące
+  pomijają brakujące i przyszłe daty. Całość nie ma poprzedniego okresu.
+- Dane bazują na wpisanej dacie sprzedaży, nie dniu kliknięcia. Przy uzupełnianiu
+  zaległych sprzedaży trzeba wybrać rzeczywistą datę; aplikacja jej nie zgaduje.
+- Brakująca lub niepoprawna cena nie jest ceną 0 zł. Taka para pozostaje w liczbie
+  sprzedaży, ale nie w przychodzie, statystykach cen ani rankingu. Cena 0 zł jest poprawna.
+- Przy braku wcześniejszego przychodu pokazujemy różnicę kwoty i par, bez
+  procentu liczonego od zera. Brak średniej lub mediany jest oznaczony kreską.
+- Osobna sekcja „Magazyn i zwrot zakupu” pokazuje stan obecny i całą historię,
+  niezależnie od zakresu. To nie jest zysk netto ani marża.
+
+Zmiana jest odczytowa, bez migracji danych. Obliczenia pieniężne używają Decimal
+z zaokrągleniem do groszy. To podsumowanie aktualnych rekordów, nie niezmienna
+historia transakcji: korekta daty, ceny lub cofnięcie statusu zmienia wyniki.
+Wykres i własne ilustracje stanowią kolejne części wdrożenia.
+
 ## Interfejs — Material 3
 
 Pierwsza partia wizualna wprowadza ciemny motyw inspirowany

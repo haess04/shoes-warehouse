@@ -1,5 +1,26 @@
 # Magazynier — notatka techniczna
 
+## Aktualizacja: analityka — część 1
+
+- `app/analytics.py` wydziela obliczenia do funkcji niezależnych od Flask i bazy.
+  SalesPeriod określa jawne przedziały; dzisiejszy widok i Całość nie porównują
+  się z poprzednim okresem. Miesiąc porównuje analogiczny zakres, z obsługą
+  krótszego lutego, roku przestępnego i zmiany roku. Okna 7-dniowe nie nachodzą.
+- `valid_sale_price()` odrzuca brak ceny, liczby niefinitywne i ujemne, zachowując
+  poprawne zero. Przychód, średnia, mediana i różnice są liczone przez Decimal.
+- `build_sales_analytics()` zwraca wspólne wskaźniki, porównanie, ranking i informacje
+  o jakości danych. Zakresy dat używają wyłącznie sale_date, nigdy created_at.
+- `home()` używa jednej daty lokalnej dla wszystkich obliczeń. Sidebar nadal jest
+  jawnie podpisanym podsumowaniem bieżącego miesiąca; magazyn i koszty pozostają
+  stanem całkowitym, nie są ograniczane filtrem sprzedaży.
+- `sales_summary.html` zawiera cztery wskaźniki we wspólnej karcie i linki GET do
+  okresów. Działa bez JavaScriptu. Wybór okresu jest zachowywany podczas szukania,
+  a ranking i zakres cen zawsze odpowiadają temu samemu okresowi co wskaźniki.
+- `tests/test_analytics.py` sprawdza granice okresów, brakujące dane, ceny zero,
+  arytmetykę groszową, ranking, opóźnione wpisywanie i integrację widoku.
+- Nie zmieniono schematu bazy, danych, logowania ani reguł wyszukiwania. Wykres
+  oraz nowe grafiki pozostają kolejnymi, osobno testowanymi częściami.
+
 ## Aktualizacja: konto właściciela, sesje i CSRF
 
 - `app/auth.py` rejestruje osobny Blueprint, lokalne polecenia init-owner oraz
