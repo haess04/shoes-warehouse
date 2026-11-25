@@ -30,6 +30,14 @@ Lokalna aplikacja webowa do zarządzania magazynem butów przechowywanych w pale
 - Jinja2,
 - HTML/CSS/JavaScript.
 
+## Lokalny audyt miejsca zajmowanego przez zdjęcia
+
+[Instrukcja bezpiecznego audytu i próbek kompresji](PHOTO_STORAGE.md) opisuje
+niezależne narzędzie tylko do odczytu. Próby JPEG/WebP powstają wyłącznie na
+prywatnych, ignorowanych kopiach; oryginały i baza pozostają bez zmian.
+Nie jest to migracja ani automatyczne zwalnianie miejsca — kolejne decyzje
+wymagają oceny próbek i osobnego zatwierdzenia.
+
 ## Analityka — część 1
 
 Panel wyników ma wspólny zakres dla przychodu, liczby sprzedanych par, średniej,

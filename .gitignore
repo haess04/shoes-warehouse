@@ -24,6 +24,7 @@ ENV/
 *.db-wal
 *.db-shm
 .ui-artifacts/
+.photo-audit/
 
 # Local database files
 *.db
