@@ -54,9 +54,10 @@
     <form method="post" action="/pallets/{{ pallet.id }}/photos/sync-all">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" /><button type="submit" class="btn-outlined btn-small">{{ icon('sync') }} <span>Synchronizuj zdjęcia</span></button></form>
   </div>
+  <p class="section-description" id="pallet-search-hint">Szukaj po ID lub nazwie. Wszystkie słowa, w dowolnej kolejności, np. pier one 43.</p>
   <form method="get" action="/pallets/{{ pallet.id }}" class="search-row product-filters">
     <label class="visually-hidden" for="pallet-search">Szukaj po ID lub nazwie</label>
-    <input type="search" id="pallet-search" name="q" value="{{ q }}" placeholder="Szukaj po ID lub nazwie…" />
+    <input type="search" id="pallet-search" name="q" value="{{ q }}" aria-describedby="pallet-search-hint" placeholder="Szukaj po ID lub nazwie…" />
     <label class="visually-hidden" for="pallet-status">Status produktu</label>
     <select id="pallet-status" name="status"><option value="all" {% if status_filter == 'all' %}selected{% endif %}>Wszystkie statusy</option><option value="available" {% if status_filter == 'available' %}selected{% endif %}>Dostępne</option><option value="sold" {% if status_filter == 'sold' %}selected{% endif %}>Sprzedane</option></select>
     <button type="submit" class="btn-tonal">{{ icon('search') }} Szukaj</button>

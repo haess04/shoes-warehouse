@@ -1,5 +1,21 @@
 # Magazynier — notatka techniczna
 
+## Aktualizacja: wyszukiwanie wszystkich słów
+
+- Wspólny pomocnik [all_terms_filters()](app/main.py:42) rozdziela tekst po białych
+  znakach, usuwa identyczne powtórzenia i tworzy koniunkcję warunków: każde słowo
+  musi wystąpić w co najmniej jednym z dotychczasowych pól danej trasy.
+- Dopasowania pozostają fragmentowe, z dotychczasową obsługą wielkości liter,
+  bez dodatkowej normalizacji Unicode. Procent, podkreślenie oraz wybrany znak
+  ucieczki (wykrzyknik) są escapowane; wartości przekazuje SQLAlchemy jako
+  parametry, bez interpolacji surowego SQL.
+- Bez zmian schematu, limitu globalnego 100, kolejności, zakresu palety/statusu,
+  okresu analityki, nawigacji i ładowania zdjęć. Puste zapytanie zachowuje dotychczasowe
+  działanie: brak wyników globalnych, pełna lista w palecie z filtrem statusu.
+- [Testy wyszukiwania](tests/test_search.py) używają wyłącznie tymczasowej bazy
+  i danych syntetycznych; testy Edge obejmują formularze i zachowanie nawigacji.
+- Zdjęcia, rzeczywista baza, sekrety i prywatne artefakty audytu nie są częścią zmiany.
+
 ## Aktualizacja: analityka — część 2
 
 - W odpowiedzi na potrzebę użytkownika ranking jest ponownie globalny cenowo,

@@ -155,6 +155,19 @@ Cały kadr pozostaje widoczny, proporcje są zachowane, a małe pliki nie są ro
 ponad oryginalny rozmiar. Dopasowanie aktualizuje się po zmianie rozmiaru okna.
 Testy obejmują duże obrazy pionowe i poziome oraz mały obraz, nie tylko miniatury.
 
+### Wyszukiwanie produktów
+
+W magazynie i w palecie wyszukiwanie wymaga wszystkich wpisanych słów, w dowolnej
+kolejności, z dowolnymi słowami pomiędzy nimi. Przykładowo „pier one 43” oraz
+„43 sztyblety Pier One” znajdują „Pier One buty sztyblety czarne 43”. Nadal są to
+dopasowania fragmentów tekstu, nie osobny filtr dokładnego rozmiaru.
+Globalnie słowa mogą pasować do ID, nazwy lub kodu palety; w palecie tylko do ID
+lub nazwy, z zachowaniem wybranego statusu. Białe znaki rozdzielają słowa,
+powtórzenia nie zmieniają wyniku, a samo białe miejsce działa jak puste pole.
+Procent i podkreślenie są znakami dosłownymi, nie symbolami wieloznacznymi.
+Obsługa wielkości liter pozostaje zależna od dotychczasowego mechanizmu bazy;
+nie dodano normalizacji polskich liter ani odmian wyrazów.
+
 ### Opcjonalne testy przeglądarkowe
 
 Podstawowy zestaw testów pozostaje dostępny bez dodatkowych zależności:

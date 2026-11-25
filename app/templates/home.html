@@ -16,11 +16,11 @@
 <section class="card search-card" aria-labelledby="global-search-title">
   <div class="section-heading">
     <span class="section-icon">{{ icon('search') }}</span>
-    <div><h2 id="global-search-title">Znajdź parę w całym magazynie</h2><p class="section-description">Szukaj po ID, nazwie lub kodzie palety.</p></div>
+    <div><h2 id="global-search-title">Znajdź parę w całym magazynie</h2><p class="section-description" id="global-search-hint">Szukaj po ID, nazwie lub kodzie palety. Wszystkie słowa, w dowolnej kolejności, np. pier one 43.</p></div>
   </div>
   <form method="get" action="/" class="search-row">
     <input type="hidden" name="period" value="{{ analytics.period.key }}" />
-    <input type="search" id="global-search" name="shoe_q" value="{{ shoe_q }}" aria-label="ID buta, nazwa lub kod palety" placeholder="Np. A012, Nike, BOX_A…" />
+    <input type="search" id="global-search" name="shoe_q" value="{{ shoe_q }}" aria-label="ID buta, nazwa lub kod palety" aria-describedby="global-search-hint" placeholder="Np. A012, Nike, BOX_A…" />
     <button type="submit" class="btn-tonal">{{ icon('search') }} Szukaj</button>
     {% if shoe_q %}<a class="btn-text" href="{{ url_for('inventory.home', period=analytics.period.key) }}">Wyczyść</a>{% endif %}
   </form>

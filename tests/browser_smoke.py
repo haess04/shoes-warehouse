@@ -193,6 +193,37 @@ class BrowserSmokeTests(unittest.TestCase):
         self.assertEqual(self.page.locator(".product-list tbody tr").count(), 1)
         self.assertIn("A002", self.page.locator(".product-list").inner_text())
 
+    def test_all_terms_global_search_keeps_period_navigation(self):
+        self.page.goto(self.url + '/?period=week')
+        self.page.locator('#global-search').fill('BOX_A demonstracyjny A001 A001')
+        self.page.get_by_role('button', name='Szukaj', exact=True).click()
+        self.page.wait_for_url('**/?*shoe_q=*')
+        self.assertEqual(self.page.locator('.search-card .shoes-table tbody tr').count(), 1)
+        self.assertIn('A001', self.page.locator('.search-card .shoes-table').inner_text())
+        self.assertEqual(self.page.locator('.search-card [name="period"]').input_value(), 'week')
+        self.page.get_by_role('link', name='Ten miesiąc', exact=True).click()
+        self.assertEqual(self.page.locator('#global-search').input_value(), 'BOX_A demonstracyjny A001 A001')
+        self.assertEqual(self.page.locator('.search-card .shoes-table tbody tr').count(), 1)
+        self.page.get_by_role('link', name='Wyczyść', exact=True).click()
+        self.assertEqual(self.page.locator('#global-search').input_value(), '')
+        self.assertIn('period=month', self.page.url)
+        self.assertEqual(self.errors, [])
+
+    def test_all_terms_pallet_search_keeps_status(self):
+        self.page.goto(f'{self.url}/pallets/{self.pid}')
+        self.page.locator('#pallet-search').fill('A002 produkt Dostępny')
+        self.page.locator('#pallet-status').select_option('available')
+        self.page.get_by_role('button', name='Szukaj', exact=True).click()
+        self.page.wait_for_url('**/pallets/*?*')
+        self.assertEqual(self.page.locator('.product-list tbody tr').count(), 1)
+        self.assertIn('A002', self.page.locator('.product-list').inner_text())
+        self.assertEqual(self.page.locator('#pallet-status').input_value(), 'available')
+        self.page.locator('#pallet-status').select_option('sold')
+        self.page.get_by_role('button', name='Szukaj', exact=True).click()
+        self.page.wait_for_url('**status=sold')
+        self.assertEqual(self.page.locator('.product-list tbody tr').count(), 0)
+        self.assertEqual(self.errors, [])
+
     def test_sale_editor_error_stays_open(self):
         self.page.goto(f"{self.url}/shoes/{self.sid}")
         self.page.locator("#sale-edit summary").click()

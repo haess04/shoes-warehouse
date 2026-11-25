@@ -39,6 +39,13 @@ SALE_FORM = {
 }
 
 
+def all_terms_filters(query_text, *fields):
+    """AND between whitespace-separated terms, OR between fields; literal LIKE."""
+    for term in dict.fromkeys(query_text.split()):
+        escaped = term.replace("!", "!!").replace("%", "!%").replace("_", "!_")
+        yield or_(*(field.ilike(f"%{escaped}%", escape="!") for field in fields))
+
+
 def expected_shoe_dir(pallet_code: str, shoe_internal_id: str) -> Path:
     return current_app.config["PHOTOS_ROOT"] / pallet_code / shoe_internal_id
 
@@ -232,11 +239,7 @@ def home():
                 .options(joinedload(Shoe.pallet))
                 .join(Pallet)
                 .filter(
-                    or_(
-                        Shoe.internal_id.ilike(f"%{shoe_q}%"),
-                        Shoe.name.ilike(f"%{shoe_q}%"),
-                        Pallet.code.ilike(f"%{shoe_q}%"),
-                    )
+                    *all_terms_filters(shoe_q, Shoe.internal_id, Shoe.name, Pallet.code)
                 )
                 .order_by(Shoe.id.desc())
                 .limit(100)
@@ -321,10 +324,7 @@ def pallet_detail(pallet_id: int):
             shoes_query = shoes_query.filter(Shoe.status == status_filter)
         if query_text:
             shoes_query = shoes_query.filter(
-                or_(
-                    Shoe.internal_id.ilike(f"%{query_text}%"),
-                    Shoe.name.ilike(f"%{query_text}%"),
-                )
+                *all_terms_filters(query_text, Shoe.internal_id, Shoe.name)
             )
 
         shoes = shoes_query.order_by(Shoe.id.desc()).all()
