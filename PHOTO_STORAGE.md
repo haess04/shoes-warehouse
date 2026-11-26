@@ -1,4 +1,4 @@
-# Bezpieczny lokalny audyt zdjęć i próbki kompresji
+# Bezpieczny lokalny audyt zdjęć, próbki i archiwum oryginałów
 
 Narzędzie [audytu](tools/photo_storage.py) działa niezależnie od aplikacji.
 Nie importuje jej fabryki, nie tworzy bazy, schematu, sesji ani kont użytkowników.
@@ -99,3 +99,61 @@ i tymczasowych baz SQLite. Obejmują brak efektów ubocznych, stare lokalizacje,
 deterministyczny dobór, atomowość oraz niezmienność plików źródłowych.
 Test rzeczywistego dowiązania może być pominięty, jeśli Windows nie udziela uprawnień;
 testy blokowania komponentów dowiązań i punktów połączeń działają niezależnie od tego.
+
+## Etap archiwizacji — bez konwersji i usuwania
+
+Osobne [narzędzie archiwizacji](tools/photo_archive.py) kopiuje oryginały do nowego,
+unikalnego katalogu na wskazanym dysku. Nie importuje aplikacji, nie synchronizuje
+zdjęć i nie zmienia rekordów magazynu. Nie zawiera operacji podmiany ani kasowania.
+
+- Start wymaga jawnego katalogu danych i istniejącego katalogu docelowego poza nim:
+  [polecenie start](tools/photo_archive.py:347) z argumentami katalogu danych i archiwum.
+  Opcjonalny limit pozwala najpierw skopiować małą partię.
+- [Polecenie wznowienia](tools/photo_archive.py:350) wymaga dokładnego katalogu
+  istniejącego przebiegu. **Po przerwaniu nie uruchamiać ponownie startu.**
+  Przebieg z niedokończoną inicjalizacją jest odrzucany i wymaga osobnej analizy;
+  narzędzie nie usuwa go automatycznie.
+- Prywatny manifest SQLite zawiera ścieżki, rozmiary, identyfikatory plików,
+  SHA-256, powiązania zdjęć i stan każdego pliku. Zapis stanu jest zatwierdzany
+  po każdym zweryfikowanym zdjęciu. Manifest i kopie muszą pozostać poza Git.
+- Zachowane są ścieżki względne: obrazy wszystkich głębokości standardowego
+  katalogu, wszystkie zarejestrowane pliki oraz bezpośrednie obrazy znanych
+  starych lokalizacji. Pliki niezarejestrowane nie są odrzucane. Nie jest to kopia
+  dowolnych innych plików całego dysku ani nieznanych katalogów poza tym zakresem.
+- Bazy magazynu i opcjonalna baza logowania są kopiowane przez
+  [SQLite backup API](tools/photo_archive.py:164), ze sprawdzeniem integralności.
+  Opcjonalny klucz sesji jest również kopiowany. Archiwum zawiera zatem **sekrety**:
+  nie publikować, chronić dostęp i dysk. Kopie poszczególnych baz nie stanowią
+  wspólnej transakcji pomiędzy bazami.
+- Przed kopiowaniem wymagane jest miejsce na wszystkie zaplanowane oryginały
+  oraz 2 GiB rezerwy. Wolne miejsce jest sprawdzane także przed każdym zapisem.
+  Plik tymczasowy jest utrwalany, haszowany i publikowany atomowo bez nadpisywania.
+  Dysk docelowy musi obsługiwać twarde dowiązania, np. NTFS.
+- Rozmiar/czas/identyfikator źródła oraz jego hash są sprawdzane ponownie.
+  Istniejący cel może zostać przyjęty po przerwaniu tylko przy zgodności hashy.
+  Wznowienie ponownie czyta i haszuje także już zweryfikowane pary źródło/kopia.
+  Zmienione źródło, konflikt lub uszkodzona kopia zatrzymują pracę bez nadpisania.
+  Dodatkowy obraz wykryty podczas końcowego przeglądu blokuje status kompletności.
+- Blokada systemowa wyklucza dwa procesy tego samego przebiegu i znika po awarii
+  procesu. Nie obejmuje aplikacji ani innego, niezależnego przebiegu.
+- Na Windows konserwatywna kontrola procesów odmawia pracy przy innym procesie
+  Python lub znanym serwerze aplikacji; kontrola działa przed startem i każdym
+  zdjęciem. Nie zabija procesów i w razie błędu kontroli odmawia pracy.
+  **Nie jest to wyłączna blokada aplikacji**: nie zapobiega jej uruchomieniu między
+  kontrolami ani nie wykrywa dowolnego przemianowanego programu. Podczas kopiowania
+  nie uruchamiać aplikacji. Ten mechanizm nie uprawnia do konwersji lub kasowania.
+
+Status kompletnego archiwum oznacza zgodność sprawdzonych kopii z oryginałami,
+nie zwolnienie miejsca na dysku źródłowym. Kolejny etap musi osobno zapewnić
+rzeczywiste wykluczenie zapisów aplikacji, świeżą kopię bazy, ponowną walidację
+źródeł, pełne dekodowanie nowych obrazów, bezkolizyjne nazwy, transakcyjną zmianę
+powiązań i odzyskiwanie po awarii. Dopiero wtedy można usunąć dokładnie te
+oryginały, których archiwum i podmiana zostały zweryfikowane. Bez tych zabezpieczeń
+pozostajemy na etapie archiwum; nie powstają dodatkowe warianty w katalogu synchronizacji.
+
+[Testy archiwizacji](tests/test_photo_archive.py) pracują wyłącznie na tymczasowych,
+syntetycznych danych. Obejmują wznowienie, przerwanie przed zapisem manifestu,
+uszkodzone kopie, zmianę źródła także z zachowaniem jego rozmiaru i czasu,
+brak miejsca, błąd publikacji, WAL, brak nadpisywania, wspólne powiązania,
+nietypowe głębokości, blokadę równoległego przebiegu i odmowę przy aktywnym procesie.
+Nie testują konwersji ani wycofywania podmiany, bo narzędzie ich nie implementuje.
