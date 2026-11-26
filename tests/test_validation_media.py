@@ -20,6 +20,7 @@ class ValidationMediaTests(unittest.TestCase):
         self.root = Path(self.temp.name)
         self.app = create_app({"TESTING": True, "DATA_ROOT": self.root / "data", "AUTH_DISABLED": True, "WTF_CSRF_ENABLED": False})
         self.addCleanup(self.app.extensions["inventory_db"]["engine"].dispose)
+        self.addCleanup(self.app.extensions["offline_gate"].close)
         self.client = self.app.test_client()
         with self.app.app_context(), get_session() as session:
             pallet = Pallet(code="BOX_A", delivery_date=date.today(), purchase_gross=100)
@@ -215,6 +216,7 @@ class ValidationMediaTests(unittest.TestCase):
     def test_signing_key_is_stable_between_restarts(self):
         other = create_app({"TESTING": True, "DATA_ROOT": self.app.config["DATA_ROOT"]})
         self.addCleanup(other.extensions["inventory_db"]["engine"].dispose)
+        self.addCleanup(other.extensions["offline_gate"].close)
         self.assertEqual(self.app.secret_key, other.secret_key)
 
     def test_database_failure_has_safe_error_and_rolls_back(self):

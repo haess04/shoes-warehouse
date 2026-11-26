@@ -203,7 +203,7 @@ def inventory(root, database):
                 p = Path(directory) / name
                 if p.suffix.lower() in EXTENSIONS:
                     paths.add(source_path(root, p.relative_to(root).as_posix()))
-    with closing(sqlite3.connect(database.as_uri() + "?mode=ro&immutable=1", uri=True)) as db:
+    with closing(sqlite3.connect(database.as_uri() + "?mode=ro", uri=True)) as db:
         for row_id, relative in db.execute("SELECT id, file_path FROM shoe_photos ORDER BY id"):
             p = source_path(root, relative)
             paths.add(p)

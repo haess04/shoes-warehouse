@@ -40,6 +40,7 @@ class BrowserSmokeTests(unittest.TestCase):
         with cls.app.app_context():
             set_owner_password(cls.password, initialize=True)
         cls.addClassCleanup(cls.app.extensions["inventory_db"]["engine"].dispose)
+        cls.addClassCleanup(cls.app.extensions["offline_gate"].close)
         folder = cls.app.config["PHOTOS_ROOT"] / "BOX_A" / "A001"
         folder.mkdir(parents=True)
         Image.new("RGB", (640, 480), "#607d72").save(folder / "1.jpg")

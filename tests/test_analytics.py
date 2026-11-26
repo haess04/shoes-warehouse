@@ -197,6 +197,7 @@ class AnalyticsViewTests(unittest.TestCase):
         self.addCleanup(self.temp.cleanup)
         self.app = create_app({"TESTING": True, "DATA_ROOT": self.temp.name, "AUTH_DISABLED": True, "WTF_CSRF_ENABLED": False})
         self.addCleanup(self.app.extensions["inventory_db"]["engine"].dispose)
+        self.addCleanup(self.app.extensions["offline_gate"].close)
         self.client = self.app.test_client()
         self.today = date(2026, 11, 24)
         patcher = patch("app.main.local_today", return_value=self.today)

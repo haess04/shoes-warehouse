@@ -50,6 +50,7 @@ class AuthTests(unittest.TestCase):
     def new_app(self, **config):
         app = create_app({'TESTING': True, 'DATA_ROOT': self.root, **config})
         self.addCleanup(app.extensions['inventory_db']['engine'].dispose)
+        self.addCleanup(app.extensions['offline_gate'].close)
         return app
 
     def initialize(self):

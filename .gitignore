@@ -25,6 +25,8 @@ ENV/
 *.db-shm
 .ui-artifacts/
 .photo-audit/
+.photo-offline.lock
+.photo-maintenance.json
 
 # Local database files
 *.db

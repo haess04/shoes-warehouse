@@ -28,6 +28,7 @@ class MaterialUITests(unittest.TestCase):
         self.addCleanup(self.temp.cleanup)
         self.app = create_app({"TESTING": True, "DATA_ROOT": self.temp.name, "AUTH_DISABLED": True, "WTF_CSRF_ENABLED": False})
         self.addCleanup(self.app.extensions["inventory_db"]["engine"].dispose)
+        self.addCleanup(self.app.extensions["offline_gate"].close)
         self.client = self.app.test_client()
 
     def seed_product(self, sold=False):

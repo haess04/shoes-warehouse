@@ -36,7 +36,8 @@ def no_links(path):
     """Reject symbolic links and Windows junctions in every existing component."""
     path = Path(os.path.abspath(path))
     for part in (path, *path.parents):
-        if part.is_symlink() or part.is_junction():
+        if (part.is_symlink() or part.is_junction()
+                or (part.exists() and getattr(part.lstat(), "st_file_attributes", 0) & 0x400)):
             raise ValueError("Symbolic links/junctions are not allowed")
     return path
 
@@ -48,7 +49,12 @@ def source_path(root, relative):
     parts = normalized.split("/")
     if (not normalized or "\x00" in normalized or PureWindowsPath(normalized).drive
             or PurePosixPath(normalized).is_absolute()
-            or any(p in {"", ".", ".."} or ":" in p for p in parts)):
+            or any(p in {"", ".", ".."} or ":" in p or p.endswith((".", " "))
+                   or any(ord(c) < 32 or c in '<>"|?*' for c in p)
+                   or p.split(".")[0].upper() in {"CON", "PRN", "AUX", "NUL",
+                       *("COM" + str(n) for n in range(1, 10)),
+                       *("LPT" + str(n) for n in range(1, 10))}
+                   for p in parts)):
         raise ValueError("Unsafe registered path")
     candidate = no_links(root.joinpath(*parts))
     if not candidate.is_relative_to(root) or candidate.suffix.lower() not in EXTENSIONS:

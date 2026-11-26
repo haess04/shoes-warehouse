@@ -21,6 +21,7 @@ class SearchTests(unittest.TestCase):
             "AUTH_DISABLED": True, "WTF_CSRF_ENABLED": False,
         })
         self.addCleanup(self.app.extensions["inventory_db"]["engine"].dispose)
+        self.addCleanup(self.app.extensions["offline_gate"].close)
         self.client = self.app.test_client()
         with self.app.app_context(), get_session() as db:
             pallet = Pallet(code="BOX_ALPHA", delivery_date=date(2026, 1, 1), purchase_gross=100)

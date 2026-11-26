@@ -29,6 +29,7 @@ class FoundationTests(unittest.TestCase):
     def make_app(self, root):
         app = create_app({"TESTING": True, "DATA_ROOT": root, "AUTH_DISABLED": True, "WTF_CSRF_ENABLED": False})
         self.addCleanup(app.extensions["inventory_db"]["engine"].dispose)
+        self.addCleanup(app.extensions["offline_gate"].close)
         return app
 
     def seed(self, app=None):

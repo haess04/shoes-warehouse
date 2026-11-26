@@ -12,6 +12,9 @@ def create_app(config=None):
     if (app.config.get("AUTH_DISABLED") or app.config.get("WTF_CSRF_ENABLED") is False) and not app.testing:
         raise ValueError("Authentication and CSRF may only be disabled in isolated tests")
     configure_paths(app)
+    from tools.offline_lock import init_gate
+
+    init_gate(app)
     configure_session(app)
 
     from app.main import routes
